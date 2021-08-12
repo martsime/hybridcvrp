@@ -1,0 +1,13 @@
+# Target folder
+target
+
+# Datasets
+/datasets
+
+# Ctags
+*tags
+tags.temp
+tags.lock
+
+# Cargo lock files for lib crates
+*Cargo.lock

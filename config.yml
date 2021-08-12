@@ -1,0 +1,79 @@
+###########
+# GENERAL #
+###########
+
+# Name on the problem instance from Uchoa et al. (2017)
+problem_instance: "X-n101-k25"
+
+# Time limit in seconds
+time_limit: 10
+
+# Boolean deciding whether the run is deterministic or stochastic
+deterministic: false
+
+# The seed is used if deterministic is set to true
+seed: 1
+
+#####################
+# GENETIC ALGORITHM #
+#####################
+
+# Minimum population size: μ
+min_population_size: 25
+
+# Number of individuals in the population: μ^I
+initial_individuals: 100
+
+# Generation size: λ
+population_lambda: 40
+
+# Local search granularity: Γ
+local_search_granularity: 20
+
+# Target proportion of feasible individuals: ξ^{REF}
+feasibility_proportion_target: 0.2
+
+# Number of individuals used to calculate diveristy contribution: N^C
+num_diversity_closest: 5
+
+# Number of elite individuals: N^E
+# Used to reduce the weight of the diversity contribution
+num_elites: 4
+
+# Number of iterations without improvement before restart: N^{IT}
+max_iterations_without_improvement: 20000
+
+##############
+# R&R SEARCH #
+##############
+
+# Boolean turning elite education on/off
+elite_education: false
+
+# Average number of customers removed during ruin: C̅
+average_ruin_cardinality: 10
+
+# Maximum length of removed string: L^{MAX}
+max_ruin_string_length: 10
+
+# Used to determine number of preserved customers in Split String procedure: α
+ruin_alpha: 0.01
+
+# Blink probability: β
+blink_probability: 0.01
+
+# Final temperature: T_f
+rr_final_temp: 1
+elite_education_final_temp: 1
+
+# Start temperature in the genetic cycle: T_0
+rr_start_temp: 10
+
+# Start temperature in the elite education: T_0^E
+elite_education_start_temp: 50
+
+# Factor determining number of R&R movesin the genetic cycle: γ
+rr_gamma: 1
+
+# Factor determining number of R&R movesin the elite education: γ^E
+elite_education_gamma: 10000
