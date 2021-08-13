@@ -1,14 +1,16 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use std::path::Path;
 
 use crate::config::Config;
 use crate::models::IntType;
 use crate::models::{Coordinate, Node, Problem, ProblemBuilder, Vehicle};
 
 pub fn parse_problem(config: &mut Config) -> Problem {
-    let filepath = format!("datasets/Uchoa_et_al_2017/{}.vrp", config.problem_instance);
-    log::info!("Loading problem file: {}", filepath);
-    let file = File::open(filepath).expect("Failed to load file");
+    let filepath = Path::new(&config.instance_path);
+    assert!(filepath.exists(), "Cannot find instance file");
+
+    let file = File::open(&config.instance_path).expect("Failed to open file");
     let reader = BufReader::new(file);
     let line_strings: Vec<String> = reader.lines().filter_map(|line| line.ok()).collect();
 
@@ -98,7 +100,7 @@ pub fn parse_problem(config: &mut Config) -> Problem {
             demand_values.push(
                 lines[line_number + i][1]
                     .parse::<IntType>()
-                    .expect("Failed to parse coordinate"),
+                    .expect("Failed to parse demand"),
             );
         }
         demand_values

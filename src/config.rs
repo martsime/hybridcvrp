@@ -1,21 +1,21 @@
 use std::fs::File;
 use std::io::BufReader;
 
-use crate::models::FloatType;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use uuid::Uuid;
+use serde_yaml::Value;
 
+use crate::cli::Args;
+use crate::models::FloatType;
+
+/// Contains all the configuration parameters
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Config {
     // General
-    pub problem_instance: String,
-    pub dataset: String,
+    pub instance_path: String,
+    pub solution_path: String,
     pub time_limit: u64,
-    pub max_iterations_without_improvement: u64,
-    pub max_iterations: Option<u64>,
+    pub max_iterations: u64,
     pub num_vehicles: u64,
-    pub run_id: Option<Uuid>,
     pub log_interval: u64,
 
     // Randomization
@@ -31,7 +31,6 @@ pub struct Config {
     pub feasibility_proportion_target: FloatType,
     pub tournament_size: u64,
     pub repair_probability: FloatType,
-    pub diversify_after_iterations: Option<u64>,
 
     // Split
     pub split_capacity_factor: FloatType,
@@ -90,13 +89,11 @@ impl Config {
     pub fn default() -> Self {
         Self {
             // General
-            problem_instance: String::new(),
-            dataset: String::new(),
+            instance_path: String::new(),
+            solution_path: String::new(),
             time_limit: 60,
-            max_iterations_without_improvement: 20_000,
-            max_iterations: None,
+            max_iterations: 20_000,
             num_vehicles: 1_000_000,
-            run_id: None,
             log_interval: 100,
 
             // Randomization
@@ -112,7 +109,6 @@ impl Config {
             feasibility_proportion_target: 0.2,
             tournament_size: 2,
             repair_probability: 0.5,
-            diversify_after_iterations: None,
 
             // Split
             split_capacity_factor: 1.5,
@@ -168,6 +164,7 @@ impl Config {
         }
     }
 
+    /// Reset the config to default values
     pub fn reset(&mut self) {
         let new_config = Self::default();
         *self = new_config;
@@ -179,35 +176,48 @@ impl Config {
         serde_yaml::from_reader(reader).expect(&format!("Failed to read file {}", filepath))
     }
 
+    /// Load config from yaml file
     pub fn load_yaml_file(filepath: &str) -> Self {
         // Load default
         let mut config = Self::default();
 
-        // Patch default with loaded values
-        config.patch(&Self::read_yaml_file(filepath));
+        // Update default with loaded values
+        config.update(&Self::read_yaml_file(filepath));
         config
     }
 
-    pub fn patch_from_yaml_file(&mut self, filepath: &str) {
-        self.patch(&Self::read_yaml_file(filepath));
+    /// Update the config with values from a YAML file
+    pub fn update_from_yaml_file(&mut self, filepath: &str) {
+        self.update(&Self::read_yaml_file(filepath));
     }
 
-    pub fn patch(&mut self, values: &Value) {
-        let mut config: Value = serde_json::to_value(&self).expect("Failed to serialize config");
+    /// Update the config with YAML values
+    pub fn update(&mut self, values: &Value) {
+        let mut config: Value = serde_yaml::to_value(&self).expect("Failed to serialize config");
         match values {
-            Value::Object(values_map) => {
-                // Iterate over all key-value pairs in the provided values and update the config
-                for (key, value) in values_map.iter() {
-                    // The key is like a file path. A key at top level starts with /
-                    let root_key = format!("/{}", key);
-                    if let Some(config_value) = config.pointer_mut(&root_key) {
+            Value::Mapping(mapping) => {
+                // Iterate over all key-value pairs in the mapping and update the config
+                for (key, value) in mapping.iter() {
+                    if let Some(config_value) = config.get_mut(key) {
                         *config_value = value.clone();
                     }
                 }
             }
-            _ => panic!("Cannot patch Config as JSON is not an Object"),
+            _ => panic!("Cannot update Config as YAML is not a mapping"),
         }
         // Update the config object
-        *self = serde_json::from_value(config).expect("Failed to deserialize patched config");
+        *self = serde_yaml::from_value(config).expect("Failed to deserialize patched config");
+    }
+
+    /// Update config with command line arguments
+    pub fn update_from_args(&mut self, args: &Args) {
+        self.instance_path = args.instance_path.clone();
+        self.solution_path = args.solution_path.clone();
+        if let Some(max_iterations) = args.max_iterations {
+            self.max_iterations = max_iterations;
+        }
+        if let Some(time_limit) = args.time_limit {
+            self.time_limit = time_limit;
+        }
     }
 }

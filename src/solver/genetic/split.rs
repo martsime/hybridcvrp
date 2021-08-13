@@ -1,5 +1,4 @@
 use std::collections::VecDeque;
-use std::time::Instant;
 
 use crate::constants::EPSILON;
 use crate::models::Matrix;

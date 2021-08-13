@@ -299,18 +299,8 @@ impl Metaheuristic for GeneticAlgorithm {
             self.log(ctx);
         }
 
-        if self.iterations - self.best_iteration
-            > ctx.config.borrow().max_iterations_without_improvement
-        {
+        if self.iterations - self.best_iteration > ctx.config.borrow().max_iterations {
             self.reset(ctx);
-        }
-
-        let config = ctx.config.borrow();
-
-        if let Some(max_iter) = config.max_iterations {
-            if max_iter <= self.iterations {
-                return true;
-            }
         }
 
         // Update number of iterations
