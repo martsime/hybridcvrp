@@ -6,7 +6,7 @@ use std::ptr;
 use ahash::RandomState;
 
 use crate::constants::EPSILON;
-use crate::models::{FloatType, IntType, Matrix};
+use crate::models::{CircleSector, FloatType, IntType, Matrix};
 use crate::solver::genetic::Individual;
 use crate::solver::improvement::moves::{Moves, SwapStar};
 use crate::solver::Context;
@@ -132,57 +132,6 @@ impl Node {
 }
 
 #[derive(Clone, Debug)]
-pub struct CircleSector {
-    pub start: IntType,
-    pub end: IntType,
-}
-
-const MAX_ANGLE: IntType = 65536;
-
-impl CircleSector {
-    pub fn new() -> Self {
-        Self { start: 0, end: 0 }
-    }
-
-    pub fn reset(&mut self) {
-        self.start = 0;
-        self.end = 0;
-    }
-
-    pub fn from_node(&mut self, node: &Node) {
-        self.start = node.angle;
-        self.end = node.angle;
-    }
-
-    pub fn extend(&mut self, node: &Node) {
-        if self.start == 0 && self.end == 0 {
-            self.from_node(node);
-        } else {
-            if !self.is_enclosed(node.angle) {
-                if (node.angle - self.end).rem_euclid(MAX_ANGLE)
-                    <= (self.start - node.angle).rem_euclid(MAX_ANGLE)
-                {
-                    self.end = node.angle;
-                } else {
-                    self.start = node.angle;
-                }
-            }
-        }
-    }
-
-    pub fn is_enclosed(&self, angle: IntType) -> bool {
-        (angle - self.start).rem_euclid(MAX_ANGLE) <= (self.end - self.start).rem_euclid(MAX_ANGLE)
-    }
-
-    pub fn overlaps(&self, other: &Self) -> bool {
-        (other.start - self.start).rem_euclid(MAX_ANGLE)
-            <= (self.end - self.start).rem_euclid(MAX_ANGLE)
-            || (self.start - other.start).rem_euclid(MAX_ANGLE)
-                <= (other.end - other.start).rem_euclid(MAX_ANGLE)
-    }
-}
-
-#[derive(Clone, Debug)]
 pub struct Route {
     pub index: usize,
 
@@ -199,6 +148,7 @@ pub struct Route {
     // Used keep track of changes
     pub last_tested_swap_star: IntType,
 
+    // Circle sector of the route
     pub sector: CircleSector,
 
     // Distance of the route
@@ -612,7 +562,7 @@ impl LocalSearch {
                 load += problem.nodes[(*node_ptr).number].demand;
 
                 if !(*node_ptr).is_depot() {
-                    (*route_ptr).sector.extend(&(*node_ptr));
+                    (*route_ptr).sector.extend((*node_ptr).angle);
                     num_customers += 1;
                 }
                 (*node_ptr).cum_distance = distance;

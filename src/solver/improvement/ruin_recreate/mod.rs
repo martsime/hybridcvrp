@@ -12,7 +12,6 @@ use crate::constants::EPSILON;
 use crate::models::{FloatType, IntType};
 use crate::solver::genetic::Individual;
 use crate::solver::Context;
-use crate::solver::SearchHistory;
 
 #[derive(Debug, Clone)]
 pub struct NodeLocation {
