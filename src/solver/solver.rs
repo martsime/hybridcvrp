@@ -1,10 +1,9 @@
-use crate::solver::{Context, SearchHistory};
+use crate::solver::Context;
+use crate::utils;
 
 pub trait Metaheuristic {
-    fn iterate(&mut self, ctx: &Context) -> bool;
+    fn iterate(&mut self, ctx: &Context);
     fn init(&mut self, ctx: &Context);
-    fn history(&self) -> &SearchHistory;
-    fn print(&self);
 }
 
 pub struct Solver<M>
@@ -23,9 +22,12 @@ where
         Self { ctx, metaheuristic }
     }
 
-    pub fn start(&mut self) {
+    pub fn run(&mut self) {
         self.metaheuristic.init(&self.ctx);
-        while !self.metaheuristic.iterate(&self.ctx) {}
-        self.metaheuristic.print();
+        while !self.ctx.terminate() {
+            self.metaheuristic.iterate(&self.ctx);
+        }
+        println!("Time: {:?}, Completed", self.ctx.elapsed());
+        utils::write_solution_file(&self.ctx);
     }
 }

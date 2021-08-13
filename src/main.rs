@@ -29,8 +29,8 @@ fn main() {
     log::info!("Loading problem file: {}", config.instance_path);
     let problem = utils::parse_problem(&mut config);
 
-    let ctx = Context::new(problem, config);
-    let metaheuristic = GeneticAlgorithm::new(&ctx, search_history);
+    let ctx = Context::new(problem, config, search_history);
+    let metaheuristic = GeneticAlgorithm::new(&ctx);
     let mut solver = Solver::new(ctx, metaheuristic);
-    solver.start();
+    solver.run();
 }

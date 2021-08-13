@@ -1,11 +1,10 @@
 use std::collections::HashSet;
-use std::time::Instant;
 
 use crate::constants::EPSILON;
 use crate::models::FloatType;
 use crate::solver::genetic::{Individual, Population, Split};
 use crate::solver::improvement::{LocalSearch, RuinRecreate};
-use crate::solver::{Context, Metaheuristic, SearchHistory};
+use crate::solver::{Context, Metaheuristic};
 
 pub struct GeneticAlgorithm {
     pub population: Population,
@@ -21,12 +20,11 @@ pub struct GeneticAlgorithm {
     pub diversified_start: u64,
     pub diversify: bool,
     pub current_best_solution_cost: FloatType,
-    pub search_history: SearchHistory,
     pub diversity: FloatType,
 }
 
 impl GeneticAlgorithm {
-    pub fn new(ctx: &Context, search_history: SearchHistory) -> Self {
+    pub fn new(ctx: &Context) -> Self {
         Self {
             population: Population::new(ctx),
             split: Split::new(ctx),
@@ -42,7 +40,6 @@ impl GeneticAlgorithm {
             best_solution: None,
             current_best_solution_cost: FloatType::INFINITY,
             best_iteration: 0,
-            search_history,
             diversity: 1.0,
         }
     }
@@ -171,8 +168,7 @@ impl GeneticAlgorithm {
         if ctx.config.borrow().rr_mutation && rnd < ctx.config.borrow().rr_probability {
             let cost_before = child.penalized_cost();
             // let start_time = Instant::now();
-            self.rr
-                .run(ctx, child, &mut self.search_history, cost_before);
+            self.rr.run(ctx, child, cost_before);
             // ctx.meta.add_duration("R&R", start_time.elapsed());
             if self.rr.best_cost() + EPSILON < self.current_best_solution_cost
                 || ctx.random.real() < (1.0 - ctx.config.borrow().rr_acceptance_alpha)
@@ -205,10 +201,7 @@ impl GeneticAlgorithm {
     fn log(&mut self, ctx: &Context) {
         self.next_log_interval += ctx.config.borrow().log_interval;
         let mut log_text = String::new();
-        log_text.push_str(&format!(
-            "T(s): {:.2} | ",
-            self.search_history.start_time.elapsed().as_secs_f64()
-        ));
+        log_text.push_str(&format!("T(s): {:.2} | ", ctx.elapsed_as_secs_f64()));
         log_text.push_str(&format!(
             "Iter: {:6} {:4} | ",
             self.iterations,
@@ -246,17 +239,19 @@ impl GeneticAlgorithm {
         {
             self.best_iteration = self.iterations;
             self.current_best_solution_cost = individual.penalized_cost();
-            if self.current_best_solution_cost < self.search_history.best_cost {
+            let mut search_history = ctx.search_history.borrow_mut();
+            if self.current_best_solution_cost < search_history.best_cost {
                 self.best_solution = Some(individual.clone());
-                self.search_history
-                    .add_message(format!("New best: {:.2}", individual.penalized_cost()));
-                self.search_history.add(ctx, &individual);
+                search_history.add_message(format!("New best: {:.2}", individual.penalized_cost()));
+                search_history.add(ctx, &individual);
             }
         }
     }
 
     fn reset(&mut self, ctx: &Context) {
-        self.search_history.add_message(format!("Resetting"));
+        ctx.search_history
+            .borrow_mut()
+            .add_message(format!("Resetting"));
         self.population = Population::new(ctx);
         self.next_penalty_update = self.iterations;
         self.next_log_interval = self.iterations;
@@ -267,24 +262,18 @@ impl GeneticAlgorithm {
 }
 
 impl Metaheuristic for GeneticAlgorithm {
-    fn iterate(&mut self, ctx: &Context) -> bool {
+    fn iterate(&mut self, ctx: &Context) {
         // Select two parents and perform crossover
-        // let start_time = Instant::now();
         let parent_one = self.population.get_parent(ctx);
         let parent_two = self.population.get_parent(ctx);
         let mut child = self.crossover(ctx, parent_one, parent_two);
-        // ctx.meta.add_duration("Recombination", start_time.elapsed());
 
         // Max number of routes the child is allowed to get
         let max_routes = parent_one.num_nonempty_routes();
         self.split.run(ctx, &mut child, max_routes as u64);
 
         // Educate child
-        // let start_time = Instant::now();
         self.educate(ctx, &mut child);
-        // ctx.meta.add_duration("Education", start_time.elapsed());
-
-        // let start_time = Instant::now();
 
         // Add child to population
         self.population.add_individual(ctx, child, true);
@@ -299,14 +288,13 @@ impl Metaheuristic for GeneticAlgorithm {
             self.log(ctx);
         }
 
+        // Possible reset of population
         if self.iterations - self.best_iteration > ctx.config.borrow().max_iterations {
             self.reset(ctx);
         }
 
         // Update number of iterations
         self.iterations += 1;
-        // Return true if termination
-        self.search_history.start_time.elapsed().as_secs() >= ctx.config.borrow().time_limit
     }
 
     fn init(&mut self, ctx: &Context) {
@@ -315,7 +303,9 @@ impl Metaheuristic for GeneticAlgorithm {
         if ctx.config.borrow().elite_education
             && ctx.problem.num_customers() > ctx.config.borrow().dive_problem_size_limit
         {
-            self.search_history.add_message(format!("Elite Education"));
+            ctx.search_history
+                .borrow_mut()
+                .add_message(format!("Elite Education"));
             let mut child = Individual::new_random(ctx, 0);
             let mut penalty_multiplier = 1.0;
             self.split.run(ctx, &mut child, max_routes as u64);
@@ -334,20 +324,25 @@ impl Metaheuristic for GeneticAlgorithm {
             }
             let cost_limit = child.penalized_cost();
             self.rr.setup_dive(ctx);
-            self.rr
-                .run(ctx, &mut child, &mut self.search_history, cost_limit);
+            self.rr.run(ctx, &mut child, cost_limit);
             self.rr.get_best_solution(&mut child);
             self.update_best(ctx, &child);
             self.population.add_individual(ctx, child, false);
-            self.search_history
+            ctx.search_history
+                .borrow_mut()
                 .add_message(format!("Elite Education Complete"));
             self.rr.setup_mutation(ctx);
             self.log(ctx);
         }
 
-        self.search_history
+        ctx.search_history
+            .borrow_mut()
             .add_message(format!("Generating population"));
         for _ in 0..num {
+            // Early stop if the program should terminate
+            if ctx.terminate() {
+                return;
+            }
             // Create random individual
             let indiviual_number = self.population.total_individuals_count;
             let mut child = Individual::new_random(ctx, indiviual_number);
@@ -355,18 +350,8 @@ impl Metaheuristic for GeneticAlgorithm {
             self.educate(ctx, &mut child);
             self.population.add_individual(ctx, child, true);
         }
-        self.search_history
+        ctx.search_history
+            .borrow_mut()
             .add_message(format!("Population generated"));
-    }
-
-    fn history(&self) -> &SearchHistory {
-        &self.search_history
-    }
-
-    fn print(&self) {
-        log::info!(
-            "Cost of best solution found: {:.2}",
-            self.search_history.best_cost
-        );
     }
 }

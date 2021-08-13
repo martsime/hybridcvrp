@@ -283,13 +283,7 @@ impl RuinRecreate {
         self.update_penalty = false;
     }
 
-    pub fn run(
-        &mut self,
-        ctx: &Context,
-        individual: &mut Individual,
-        history: &mut SearchHistory,
-        cost_limit: FloatType,
-    ) {
+    pub fn run(&mut self, ctx: &Context, individual: &mut Individual, cost_limit: FloatType) {
         // Update data
         self.ctx = unsafe { &*(ctx as *const Context) };
         self.cost_limit = cost_limit;
@@ -301,27 +295,23 @@ impl RuinRecreate {
 
         self.best_solution = Some(self.solution.clone());
 
-        // if self.solution.is_feasible() {
-        //     self.best_solution = Some(self.solution.clone());
-        // } else {
-        //     self.best_solution = None;
-        // }
-
-        self.search(history);
+        self.search();
     }
 
-    fn update_best(&mut self, solution: &RuinRecreateSolution, history: &mut SearchHistory) {
+    fn update_best(&mut self, solution: &RuinRecreateSolution) {
         self.cost_limit = solution.cost;
         self.best_solution = Some(solution.clone());
-        if solution.is_feasible() && solution.cost < history.best_cost {
+        let mut search_history = self.ctx.search_history.borrow_mut();
+        if solution.is_feasible() && solution.cost < search_history.best_cost {
             let mut best_individual = Individual::new_random(self.ctx, 0);
             self.update_individual(solution, &mut best_individual);
-            history.add_message(format!("New best: {:.2}", best_individual.penalized_cost()));
-            history.add(self.ctx, &best_individual);
+            search_history
+                .add_message(format!("New best: {:.2}", best_individual.penalized_cost()));
+            search_history.add(self.ctx, &best_individual);
         }
     }
 
-    fn search(&mut self, history: &mut SearchHistory) {
+    fn search(&mut self) {
         let mut cooling_factor = if self.max_temp < EPSILON {
             1.0
         } else {
@@ -334,16 +324,16 @@ impl RuinRecreate {
         let mut temp = self.max_temp;
         let threshold_iteration = (self.iterations as f64 * self.threshold_switch).round() as usize;
         let mut solution = self.solution.clone();
-        let mut check_run_time = 10_000;
+        let mut check_run_time = 100;
         let mut update_penalty = 100;
         for i in 0..self.iterations {
             check_run_time -= 1;
             update_penalty -= 1;
             if check_run_time == 0 {
-                if history.start_time.elapsed().as_secs() >= self.ctx.config.borrow().time_limit {
+                if self.ctx.terminate() {
                     break;
                 }
-                check_run_time = 10_000;
+                check_run_time = 100;
             }
             if update_penalty == 0 {
                 if self.update_penalty {
@@ -377,21 +367,13 @@ impl RuinRecreate {
             if solution.cost + EPSILON < cost_before - temp * self.ctx.random.real().ln()
                 && solution.cost + EPSILON < upper_bound
             {
-                if solution.cost > cost_before + EPSILON {
-                    // println!(
-                    //     "Worsened move new {:.2} > old {:.2}",
-                    //     solution.cost, cost_before
-                    // );
-                }
+                if solution.cost > cost_before + EPSILON {}
                 if let Some(best_solution) = self.best_solution.as_ref() {
                     if solution.cost + EPSILON < best_solution.cost {
-                        // self.ctx
-                        //     .meta
-                        //     .add_improvement("R&R", best_solution.cost - solution.cost);
-                        self.update_best(&solution, history);
+                        self.update_best(&solution);
                     }
                 } else {
-                    self.update_best(&solution, history);
+                    self.update_best(&solution);
                 }
                 self.solution.from(&solution);
             }

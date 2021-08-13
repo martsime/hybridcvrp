@@ -1,3 +1,4 @@
+use std::fmt;
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
@@ -37,6 +38,13 @@ pub struct HistoryMessage {
     pub message: String,
 }
 
+impl fmt::Display for HistoryMessage {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Time: {:?}, {}", self.timestamp, self.message)
+    }
+}
+
+#[derive(Debug)]
 pub struct SearchHistory {
     // History of solutions
     history: Vec<HistoryEntry>,
@@ -67,10 +75,19 @@ impl SearchHistory {
 
     pub fn add(&mut self, _ctx: &Context, individual: &Individual) {
         self.best_cost = individual.penalized_cost();
+        let timestamp = self.start_time.elapsed();
         let history_entry = HistoryEntry {
             solution: HistoricSolution::from(individual),
-            timestamp: self.start_time.elapsed(),
+            timestamp,
         };
+
+        let new_best_message = HistoryMessage {
+            message: format!("New best: {:.2}", self.best_cost),
+            timestamp,
+        };
+
+        println!("{}", new_best_message);
+
         // Keep only json for the last found solution
         self.remove_previous_data();
         self.history.push(history_entry);
@@ -91,5 +108,9 @@ impl SearchHistory {
 
     pub fn entries(&self) -> &Vec<HistoryEntry> {
         &self.history
+    }
+
+    pub fn last_entry(&self) -> Option<&HistoryEntry> {
+        self.history.last()
     }
 }
