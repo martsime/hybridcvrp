@@ -1,17 +1,17 @@
 use std::ptr;
 
-use crate::solver::improvement::localsearch::Route;
-use crate::solver::improvement::{insert_node, LocalSearch, Node};
+use crate::solver::improvement::linked_list::{insert_node, LinkNode, LinkRoute};
+use crate::solver::improvement::LocalSearch;
 use crate::{constants::EPSILON, models::FloatType};
 
 pub struct BestSwapStar {
     pub cost: FloatType,
-    pub u: *mut Node,
-    pub v: *mut Node,
+    pub u: *mut LinkNode,
+    pub v: *mut LinkNode,
     // Best position to insert `u` is right after `pos_u`
-    pub pos_u: *mut Node,
+    pub pos_u: *mut LinkNode,
     // Best position to insert `v` is right after `pos_v`
-    pub pos_v: *mut Node,
+    pub pos_v: *mut LinkNode,
 }
 
 impl BestSwapStar {
@@ -33,7 +33,11 @@ impl SwapStar {
         "SwapStar"
     }
 
-    pub unsafe fn run(ls: &mut LocalSearch, r1_ptr: *mut Route, r2_ptr: *mut Route) -> bool {
+    pub unsafe fn run(
+        ls: &mut LocalSearch,
+        r1_ptr: *mut LinkRoute,
+        r2_ptr: *mut LinkRoute,
+    ) -> bool {
         // Setup local variables
         let mut best_move = BestSwapStar::new();
         let problem = &ls.ctx.problem;

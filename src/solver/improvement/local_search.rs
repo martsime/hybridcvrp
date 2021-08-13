@@ -1,13 +1,13 @@
 use std::cmp::max;
 use std::collections::HashSet;
-use std::fmt;
 use std::ptr;
 
 use ahash::RandomState;
 
 use crate::constants::EPSILON;
-use crate::models::{CircleSector, FloatType, IntType, Matrix};
+use crate::models::{FloatType, IntType, Matrix};
 use crate::solver::genetic::Individual;
+use crate::solver::improvement::linked_list::{link_nodes, LinkNode, LinkRoute};
 use crate::solver::improvement::moves::{Moves, SwapStar};
 use crate::solver::Context;
 
@@ -16,197 +16,10 @@ pub fn route_cost(distance: IntType, overload: IntType, penalty: FloatType) -> F
     distance as FloatType + penalty * max(0, overload) as FloatType
 }
 
-#[inline]
-pub unsafe fn link_nodes(node_one: *mut Node, node_two: *mut Node) {
-    (*node_one).successor = node_two;
-    (*node_two).predecessor = node_one;
-}
-
-#[inline]
-pub unsafe fn insert_node(node_one: *mut Node, node_two: *mut Node) {
-    let node_one_prev = (*node_one).predecessor;
-    let node_one_next = (*node_one).successor;
-    let node_two_next = (*node_two).successor;
-    link_nodes(node_one_prev, node_one_next);
-    link_nodes(node_two, node_one);
-    link_nodes(node_one, node_two_next);
-}
-
-pub unsafe fn forward_reverse(
-    mut from_node: *mut Node,
-    to_node: *mut Node,
-    new_first_node: *mut Node,
-) {
-    let mut node = (*from_node).successor;
-    while !node.is_null() {
-        let next_node = (*node).successor;
-
-        // If at first node and we have a new first node
-        if next_node.is_null() && !new_first_node.is_null() {
-            link_nodes(new_first_node, from_node);
-        } else {
-            link_nodes(node, from_node);
-        }
-        if !to_node.is_null() {
-            if (*node).number == (*to_node).number {
-                break;
-            }
-        }
-        from_node = node;
-        node = next_node;
-    }
-}
-
-pub unsafe fn backward_reverse(
-    mut from_node: *mut Node,
-    to_node: *mut Node,
-    new_last_node: *mut Node,
-) {
-    let mut node = (*from_node).predecessor;
-    while !node.is_null() {
-        let next_node = (*node).predecessor;
-
-        // If at last node and we have a new last node
-        if next_node.is_null() && !new_last_node.is_null() {
-            link_nodes(from_node, new_last_node);
-        } else {
-            link_nodes(from_node, node);
-        }
-        if !to_node.is_null() {
-            if (*node).number == (*to_node).number {
-                break;
-            }
-        }
-        from_node = node;
-        node = next_node;
-    }
-}
-
-#[inline]
-pub unsafe fn replace_end_depot(mut from_node: *mut Node, end_depot: *mut Node) {
-    let mut next_node = (*from_node).successor;
-    while !next_node.is_null() {
-        // Update last depot when at last node
-        if (*next_node).successor.is_null() {
-            link_nodes(from_node, end_depot);
-        }
-        from_node = next_node;
-        next_node = (*next_node).successor;
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct Node {
-    pub number: usize,
-    pub angle: IntType,
-    pub successor: *mut Node,
-    pub predecessor: *mut Node,
-    pub route: *mut Route,
-    pub position: usize,
-    pub last_tested: IntType,
-    pub cum_distance: IntType,
-    pub cum_load: IntType,
-    // Change in distance when removing the node
-    pub delta_removal: IntType,
-}
-
-impl Node {
-    pub unsafe fn new(number: usize, angle: IntType) -> Self {
-        Self {
-            number,
-            angle,
-            successor: ptr::null_mut(),
-            predecessor: ptr::null_mut(),
-            route: ptr::null_mut(),
-            position: 0,
-            last_tested: 0,
-            cum_distance: 0,
-            cum_load: 0,
-            delta_removal: 0,
-        }
-    }
-
-    pub fn is_depot(&self) -> bool {
-        self.number == 0
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct Route {
-    pub index: usize,
-
-    // Reference to the depot nodes
-    pub start_depot: *mut Node,
-    pub end_depot: *mut Node,
-
-    // Number of customers visisted in the route
-    pub num_customers: usize,
-
-    // Used keep track of changes
-    pub last_modified: IntType,
-
-    // Used keep track of changes
-    pub last_tested_swap_star: IntType,
-
-    // Circle sector of the route
-    pub sector: CircleSector,
-
-    // Distance of the route
-    pub distance: IntType,
-
-    // Total load on the route
-    pub load: IntType,
-
-    // Total overload on the route
-    pub overload: IntType,
-
-    // Penalized cost
-    pub cost: FloatType,
-}
-
-impl Route {
-    pub fn new(index: usize, start_depot: *mut Node, end_depot: *mut Node) -> Self {
-        Self {
-            index,
-            start_depot,
-            end_depot,
-            num_customers: 0,
-            last_modified: 0,
-            last_tested_swap_star: 0,
-            sector: CircleSector::new(),
-            distance: IntType::MAX,
-            load: IntType::MAX,
-            overload: IntType::MAX,
-            cost: FloatType::INFINITY,
-        }
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.num_customers == 0
-    }
-}
-
-impl fmt::Display for Route {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut customers: Vec<usize> = Vec::new();
-        let mut next_node_ptr = self.start_depot;
-        while !next_node_ptr.is_null() {
-            unsafe {
-                let node = &*next_node_ptr;
-                if !node.is_depot() {
-                    customers.push(node.number);
-                }
-                next_node_ptr = node.successor;
-            }
-        }
-        write!(f, "{:?}", customers)
-    }
-}
-
 #[derive(Debug, Clone, Copy)]
 pub struct InsertLocation {
     pub cost: FloatType,
-    pub node: *mut Node,
+    pub node: *mut LinkNode,
 }
 
 impl InsertLocation {
@@ -261,7 +74,7 @@ impl ThreeBestInserts {
 pub struct LocalSearch {
     pub ctx: &'static Context,
 
-    pub routes: Vec<Route>,
+    pub routes: Vec<LinkRoute>,
     pub customers: Vec<usize>,
     pub correlations: Vec<usize>,
     pub granularities: Vec<usize>,
@@ -274,9 +87,9 @@ pub struct LocalSearch {
     pub best_inserts: Matrix<ThreeBestInserts>,
 
     // Nodes used in the local search
-    pub nodes: Vec<Node>,
-    pub start_depots: Vec<Node>,
-    pub end_depots: Vec<Node>,
+    pub nodes: Vec<LinkNode>,
+    pub start_depots: Vec<LinkNode>,
+    pub end_depots: Vec<LinkNode>,
 
     // Indices to empty routes
     pub empty_routes: HashSet<usize, RandomState>,
@@ -289,12 +102,12 @@ impl LocalSearch {
     pub fn new(ctx: &Context, penalty_multiplier: FloatType) -> Self {
         unsafe {
             // Create all the nodes
-            let nodes: Vec<Node> = ctx
+            let nodes: Vec<LinkNode> = ctx
                 .problem
                 .nodes
                 .iter()
                 .enumerate()
-                .map(|(index, _)| Node::new(index, ctx.problem.get_angle(index)))
+                .map(|(index, _)| LinkNode::new(index, ctx.problem.get_angle(index)))
                 .collect();
 
             let customers: Vec<usize> = (1..ctx.problem.dim()).collect();
@@ -307,13 +120,13 @@ impl LocalSearch {
             let mut end_depots = Vec::with_capacity(num_vehicles);
             let mut routes = Vec::with_capacity(num_vehicles);
             for route_number in 0..num_vehicles {
-                let start_depot = Node::new(0, 0);
-                let end_depot = Node::new(0, 0);
+                let start_depot = LinkNode::new(0, 0);
+                let end_depot = LinkNode::new(0, 0);
                 start_depots.push(start_depot);
                 end_depots.push(end_depot);
-                let start_depot_ptr = start_depots.get_unchecked_mut(route_number) as *mut Node;
-                let end_depot_ptr = end_depots.get_unchecked_mut(route_number) as *mut Node;
-                routes.push(Route::new(route_number, start_depot_ptr, end_depot_ptr));
+                let start_depot_ptr = start_depots.get_unchecked_mut(route_number) as *mut LinkNode;
+                let end_depot_ptr = end_depots.get_unchecked_mut(route_number) as *mut LinkNode;
+                routes.push(LinkRoute::new(route_number, start_depot_ptr, end_depot_ptr));
             }
 
             Self {
@@ -350,20 +163,20 @@ impl LocalSearch {
         unsafe {
             for (route_index, route) in individual.phenotype.iter().enumerate() {
                 // Start with the depot as the last node
-                let mut last_node = &mut self.start_depots[route_index] as *mut Node;
+                let mut last_node = &mut self.start_depots[route_index] as *mut LinkNode;
 
                 // Link up all nodes
                 for &node_index in route.iter() {
-                    let node = &mut self.nodes[node_index] as *mut Node;
+                    let node = &mut self.nodes[node_index] as *mut LinkNode;
                     link_nodes(last_node, node);
                     last_node = node;
                 }
 
                 // Link the last node to the end depot
-                let depot_end = &mut self.end_depots[route_index] as *mut Node;
+                let depot_end = &mut self.end_depots[route_index] as *mut LinkNode;
                 link_nodes(last_node, depot_end);
 
-                let route = &mut self.routes[route_index] as *mut Route;
+                let route = &mut self.routes[route_index] as *mut LinkRoute;
                 (*route).last_tested_swap_star = -1;
                 for node_number in 0..self.nodes.len() {
                     let best_insert = self.best_inserts.get_mut(route_index, node_number);
@@ -420,7 +233,7 @@ impl LocalSearch {
                     self.ctx.random.shuffle(cor);
                 }
 
-                let u = &mut self.nodes[*u_index] as *mut Node;
+                let u = &mut self.nodes[*u_index] as *mut LinkNode;
                 let mut route_u = (*u).route;
 
                 // Update RI timestamp for node u
@@ -429,7 +242,7 @@ impl LocalSearch {
 
                 // Iterate over correlated nodes
                 'v_loop: for &v_index in cor.iter() {
-                    let v = &mut self.nodes[v_index] as *mut Node;
+                    let v = &mut self.nodes[v_index] as *mut LinkNode;
                     let route_v = (*v).route;
 
                     // Only try moves if one of the routes is modified since last time
@@ -466,7 +279,7 @@ impl LocalSearch {
                 if loop_count > 0 && !self.empty_routes.is_empty() {
                     let empty_route_index =
                         *self.empty_routes.iter().next().expect("No empty route");
-                    let route_v = &mut self.routes[empty_route_index] as *mut Route;
+                    let route_v = &mut self.routes[empty_route_index] as *mut LinkRoute;
                     let v = (*route_v).start_depot;
                     for m in moves.empty_route.iter() {
                         let delta = m.delta(&self, u, v);
@@ -482,11 +295,11 @@ impl LocalSearch {
             }
             if self.ctx.config.borrow().swap_star {
                 for r1_num in 0..self.routes.len() {
-                    let r1_ptr = &mut self.routes[r1_num] as *mut Route;
+                    let r1_ptr = &mut self.routes[r1_num] as *mut LinkRoute;
                     let last_tested_u = (*r1_ptr).last_tested_swap_star;
                     (*r1_ptr).last_tested_swap_star = self.move_count;
                     for r2_num in (r1_num + 1)..self.routes.len() {
-                        let r2_ptr = &mut self.routes[r2_num] as *mut Route;
+                        let r2_ptr = &mut self.routes[r2_num] as *mut LinkRoute;
                         if !(*r1_ptr).is_empty()
                             && !(*r2_ptr).is_empty()
                             && r1_num < r2_num
@@ -537,7 +350,7 @@ impl LocalSearch {
     }
 
     // Used to update the route after a move is performed
-    pub fn update_route(&mut self, route_ptr: *mut Route) {
+    pub fn update_route(&mut self, route_ptr: *mut LinkRoute) {
         let problem = &self.ctx.problem;
         unsafe {
             // Variables to be calculated for the route
@@ -613,7 +426,7 @@ impl LocalSearch {
     }
 
     /// Used to preprocess the three best insertion costs for all nodes in a pair of routes
-    pub unsafe fn preprocess_insertions(&mut self, r1_ptr: *mut Route, r2_ptr: *mut Route) {
+    pub unsafe fn preprocess_insertions(&mut self, r1_ptr: *mut LinkRoute, r2_ptr: *mut LinkRoute) {
         let problem = &self.ctx.problem;
         let r1 = &*r1_ptr;
         let r2 = &*r2_ptr;
@@ -680,9 +493,9 @@ impl LocalSearch {
     /// while v is removed at the same time
     pub unsafe fn cheapest_insert_and_removal(
         &mut self,
-        u_ptr: *mut Node,
-        v_ptr: *mut Node,
-    ) -> (*mut Node, FloatType) {
+        u_ptr: *mut LinkNode,
+        v_ptr: *mut LinkNode,
+    ) -> (*mut LinkNode, FloatType) {
         // Derefence pointers and setup local variables
         let u = &*u_ptr;
         let v = &*v_ptr;

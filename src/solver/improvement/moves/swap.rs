@@ -1,6 +1,7 @@
 use crate::models::FloatType;
+use crate::solver::improvement::linked_list::{link_nodes, LinkNode};
 use crate::solver::improvement::moves::Move;
-use crate::solver::improvement::{link_nodes, route_cost, LocalSearch, Node};
+use crate::solver::improvement::{route_cost, LocalSearch};
 
 pub struct SwapOneWithOne;
 
@@ -8,7 +9,12 @@ impl Move for SwapOneWithOne {
     fn move_name(&self) -> &'static str {
         "SwapOneWithOne"
     }
-    unsafe fn delta(&self, ls: &LocalSearch, u_rc: *mut Node, v_rc: *mut Node) -> FloatType {
+    unsafe fn delta(
+        &self,
+        ls: &LocalSearch,
+        u_rc: *mut LinkNode,
+        v_rc: *mut LinkNode,
+    ) -> FloatType {
         let problem = &ls.ctx.problem;
 
         let u = &*u_rc;
@@ -57,7 +63,7 @@ impl Move for SwapOneWithOne {
         new_cost - old_cost
     }
 
-    unsafe fn perform(&self, ls: &mut LocalSearch, u_rc: *mut Node, v_rc: *mut Node) {
+    unsafe fn perform(&self, ls: &mut LocalSearch, u_rc: *mut LinkNode, v_rc: *mut LinkNode) {
         log::debug!("SwapOneWithOne");
         let r1 = (*u_rc).route;
         let r2 = (*v_rc).route;
@@ -93,7 +99,12 @@ impl Move for SwapTwoWithOne {
     fn move_name(&self) -> &'static str {
         "SwapTwoWithOne"
     }
-    unsafe fn delta(&self, ls: &LocalSearch, u_rc: *mut Node, v_rc: *mut Node) -> FloatType {
+    unsafe fn delta(
+        &self,
+        ls: &LocalSearch,
+        u_rc: *mut LinkNode,
+        v_rc: *mut LinkNode,
+    ) -> FloatType {
         let problem = &ls.ctx.problem;
 
         let u = &*u_rc;
@@ -150,7 +161,7 @@ impl Move for SwapTwoWithOne {
         new_cost - old_cost
     }
 
-    unsafe fn perform(&self, ls: &mut LocalSearch, u_rc: *mut Node, v_rc: *mut Node) {
+    unsafe fn perform(&self, ls: &mut LocalSearch, u_rc: *mut LinkNode, v_rc: *mut LinkNode) {
         log::debug!("SwapTwoWithOne");
         let r1 = (*u_rc).route;
         let r2 = (*v_rc).route;
@@ -187,7 +198,12 @@ impl Move for SwapTwoWithTwo {
     fn move_name(&self) -> &'static str {
         "SwapTwoWithTwo"
     }
-    unsafe fn delta(&self, ls: &LocalSearch, u_rc: *mut Node, v_rc: *mut Node) -> FloatType {
+    unsafe fn delta(
+        &self,
+        ls: &LocalSearch,
+        u_rc: *mut LinkNode,
+        v_rc: *mut LinkNode,
+    ) -> FloatType {
         let problem = &ls.ctx.problem;
         let u = &*u_rc;
         let u_prev = &*u.predecessor;
@@ -254,7 +270,7 @@ impl Move for SwapTwoWithTwo {
         new_cost - old_cost
     }
 
-    unsafe fn perform(&self, ls: &mut LocalSearch, u_rc: *mut Node, v_rc: *mut Node) {
+    unsafe fn perform(&self, ls: &mut LocalSearch, u_rc: *mut LinkNode, v_rc: *mut LinkNode) {
         log::debug!("SwapTwoWithTwo");
         let r1 = (*u_rc).route;
         let r2 = (*v_rc).route;

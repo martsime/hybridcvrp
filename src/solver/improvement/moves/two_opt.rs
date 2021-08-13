@@ -1,8 +1,9 @@
 use crate::models::FloatType;
-use crate::solver::improvement::moves::Move;
-use crate::solver::improvement::{
-    backward_reverse, forward_reverse, link_nodes, replace_end_depot, route_cost, LocalSearch, Node,
+use crate::solver::improvement::linked_list::{
+    backward_reverse, forward_reverse, link_nodes, replace_end_depot, LinkNode,
 };
+use crate::solver::improvement::moves::Move;
+use crate::solver::improvement::{route_cost, LocalSearch};
 
 pub struct TwoOptIntraReverse;
 
@@ -10,7 +11,12 @@ impl Move for TwoOptIntraReverse {
     fn move_name(&self) -> &'static str {
         "TwoOptIntraReverse"
     }
-    unsafe fn delta(&self, ls: &LocalSearch, u_rc: *mut Node, v_rc: *mut Node) -> FloatType {
+    unsafe fn delta(
+        &self,
+        ls: &LocalSearch,
+        u_rc: *mut LinkNode,
+        v_rc: *mut LinkNode,
+    ) -> FloatType {
         let problem = &ls.ctx.problem;
 
         let u = &*u_rc;
@@ -39,7 +45,7 @@ impl Move for TwoOptIntraReverse {
         delta_distance as FloatType
     }
 
-    unsafe fn perform(&self, ls: &mut LocalSearch, u_rc: *mut Node, v_rc: *mut Node) {
+    unsafe fn perform(&self, ls: &mut LocalSearch, u_rc: *mut LinkNode, v_rc: *mut LinkNode) {
         log::debug!("TwoOptIntraReverse");
         let r1 = (*u_rc).route;
         let x_rc = (*u_rc).successor;
@@ -57,7 +63,12 @@ impl Move for TwoOptInterReverse {
     fn move_name(&self) -> &'static str {
         "TwoOptInterReverse"
     }
-    unsafe fn delta(&self, ls: &LocalSearch, u_rc: *mut Node, v_rc: *mut Node) -> FloatType {
+    unsafe fn delta(
+        &self,
+        ls: &LocalSearch,
+        u_rc: *mut LinkNode,
+        v_rc: *mut LinkNode,
+    ) -> FloatType {
         let problem = &ls.ctx.problem;
 
         let u = &*u_rc;
@@ -89,7 +100,7 @@ impl Move for TwoOptInterReverse {
         new_cost - old_cost
     }
 
-    unsafe fn perform(&self, ls: &mut LocalSearch, u_rc: *mut Node, mut v_rc: *mut Node) {
+    unsafe fn perform(&self, ls: &mut LocalSearch, u_rc: *mut LinkNode, mut v_rc: *mut LinkNode) {
         log::debug!("TwoOptInterReverse");
         let r1 = (*u_rc).route;
         let r2 = (*v_rc).route;
@@ -121,7 +132,12 @@ impl Move for TwoOptInter {
     fn move_name(&self) -> &'static str {
         "TwoOptInter"
     }
-    unsafe fn delta(&self, ls: &LocalSearch, u_rc: *mut Node, v_rc: *mut Node) -> FloatType {
+    unsafe fn delta(
+        &self,
+        ls: &LocalSearch,
+        u_rc: *mut LinkNode,
+        v_rc: *mut LinkNode,
+    ) -> FloatType {
         let problem = &ls.ctx.problem;
 
         let u = &*u_rc;
@@ -153,7 +169,7 @@ impl Move for TwoOptInter {
         new_cost - old_cost
     }
 
-    unsafe fn perform(&self, ls: &mut LocalSearch, u_rc: *mut Node, v_rc: *mut Node) {
+    unsafe fn perform(&self, ls: &mut LocalSearch, u_rc: *mut LinkNode, v_rc: *mut LinkNode) {
         log::debug!("TwoOptInter");
         let r1 = (*u_rc).route;
         let r2 = (*v_rc).route;
