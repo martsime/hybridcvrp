@@ -1,10 +1,10 @@
 use crate::models::FloatType;
-use crate::solver::improvement::moves::ImprovementHeuristic;
+use crate::solver::improvement::moves::Move;
 use crate::solver::improvement::{link_nodes, route_cost, LocalSearch, Node};
 
 pub struct RelocateSingle;
 
-impl ImprovementHeuristic for RelocateSingle {
+impl Move for RelocateSingle {
     fn move_name(&self) -> &'static str {
         "RelocateSingle"
     }
@@ -77,7 +77,7 @@ impl ImprovementHeuristic for RelocateSingle {
 
 pub struct RelocateDouble;
 
-impl ImprovementHeuristic for RelocateDouble {
+impl Move for RelocateDouble {
     fn move_name(&self) -> &'static str {
         "RelocateDouble"
     }
@@ -160,7 +160,7 @@ impl ImprovementHeuristic for RelocateDouble {
 
 pub struct RelocateDoubleReverse;
 
-impl ImprovementHeuristic for RelocateDoubleReverse {
+impl Move for RelocateDoubleReverse {
     fn move_name(&self) -> &'static str {
         "RelocateDoubleReverse"
     }

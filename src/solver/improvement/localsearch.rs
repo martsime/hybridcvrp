@@ -546,47 +546,64 @@ impl LocalSearch {
             let mut num_customers = 0;
 
             // Start with the depot as the first node
-            let mut last_node_ptr = (*route_ptr).start_depot;
-            // Update route for the depot
-            (*last_node_ptr).route = route_ptr;
-            (*last_node_ptr).position = 0;
-            let mut node_ptr = (*last_node_ptr).successor;
+            let mut prev_node_ptr = (*route_ptr).start_depot;
 
-            let mut position = 1;
+            // Update information for the start depot
+            (*prev_node_ptr).route = route_ptr;
+            (*prev_node_ptr).position = 0;
+
+            // Reset the route circle sector
             (*route_ptr).sector.reset();
 
+            // Go to the next node
+            let mut node_ptr = (*prev_node_ptr).successor;
+            let mut position = 1;
+
+            // Loop through all nodes in route
             while !node_ptr.is_null() {
+                // Add distance and load for the node
                 distance += problem
                     .distance
-                    .get((*last_node_ptr).number, (*node_ptr).number);
+                    .get((*prev_node_ptr).number, (*node_ptr).number);
                 load += problem.nodes[(*node_ptr).number].demand;
 
+                // Update circle sector for customers
                 if !(*node_ptr).is_depot() {
                     (*route_ptr).sector.extend((*node_ptr).angle);
                     num_customers += 1;
                 }
+
+                // Update information on the node
                 (*node_ptr).cum_distance = distance;
                 (*node_ptr).cum_load = load;
                 (*node_ptr).route = route_ptr;
                 (*node_ptr).position = position;
+
+                // Increment position and pointers
                 position += 1;
-                last_node_ptr = node_ptr;
+                prev_node_ptr = node_ptr;
                 node_ptr = (*node_ptr).successor;
             }
 
+            // Update information on the route
             (*route_ptr).distance = distance;
             (*route_ptr).load = load;
             (*route_ptr).overload = load - problem.vehicle.cap;
             (*route_ptr).last_modified = self.move_count;
             (*route_ptr).num_customers = num_customers;
+
+            // Ensure predecessor of start_depot and successor of end_depot are null
             self.start_depots[(*route_ptr).index].predecessor = ptr::null_mut();
             self.end_depots[(*route_ptr).index].successor = ptr::null_mut();
+
+            // Update route cost
             (*route_ptr).cost = route_cost(
                 (*route_ptr).distance,
                 (*route_ptr).overload,
                 self.penalty_capacity,
             );
 
+            // Update set of empty routes
             if (*route_ptr).is_empty() {
                 self.empty_routes.insert((*route_ptr).index);
             } else {
@@ -595,69 +612,91 @@ impl LocalSearch {
         }
     }
 
-    pub fn preprocess_insertions(&mut self, r1_ptr: *mut Route, r2_ptr: *mut Route) {
-        unsafe {
-            let problem = &self.ctx.problem;
-            let r1 = &*r1_ptr;
-            let r2 = &*r2_ptr;
-            let mut u_ptr = (*r1.start_depot).successor;
+    /// Used to preprocess the three best insertion costs for all nodes in a pair of routes
+    pub unsafe fn preprocess_insertions(&mut self, r1_ptr: *mut Route, r2_ptr: *mut Route) {
+        let problem = &self.ctx.problem;
+        let r1 = &*r1_ptr;
+        let r2 = &*r2_ptr;
 
-            while !(*u_ptr).is_depot() {
-                let u = &*u_ptr;
+        // Start with the first customer in route 1
+        let mut u_ptr = (*r1.start_depot).successor;
 
-                let u_prev = &*u.predecessor;
-                let x = &*u.successor;
-                let delta_removal = problem.distance.get(u_prev.number, x.number)
-                    - problem.distance.get(u_prev.number, u.number)
-                    - problem.distance.get(u.number, x.number);
-                (*u_ptr).delta_removal = delta_removal;
+        // Loop over all customers in route 1
+        while !(*u_ptr).is_depot() {
+            // Derefence pointers
+            let u = &*u_ptr;
+            let u_prev = &*u.predecessor;
+            let x = &*u.successor;
 
-                if r2.last_modified > self.best_inserts.get(r2.index, u.number).last_calculated {
-                    self.best_inserts.get_mut(r2.index, u.number).reset();
+            // Calculate and set change in objective when removing u
+            let delta_removal = problem.distance.get(u_prev.number, x.number)
+                - problem.distance.get(u_prev.number, u.number)
+                - problem.distance.get(u.number, x.number);
+            (*u_ptr).delta_removal = delta_removal;
+
+            // Only recalculate insertion cost into route 2 if the route has changed since last calculation
+            if r2.last_modified > self.best_inserts.get(r2.index, u.number).last_calculated {
+                // Reset best inserts of u into route 2
+                self.best_inserts.get_mut(r2.index, u.number).reset();
+                self.best_inserts
+                    .get_mut(r2.index, u.number)
+                    .last_calculated = self.move_count;
+
+                // Start with first customer in the second route as v
+                let mut v_ptr = (*r2.start_depot).successor;
+
+                // Check cost of inserting node u between the start depot and the first node in route 2
+                let cost = problem.distance.get(0, u.number)
+                    + problem.distance.get(u.number, (*v_ptr).number)
+                    - problem.distance.get(0, (*v_ptr).number);
+                self.best_inserts
+                    .get_mut(r2.index, u.number)
+                    .add(InsertLocation {
+                        cost: cost as FloatType,
+                        node: r2.start_depot,
+                    });
+
+                // Calculate insertion cost of u for the remaining positions in route 2
+                while !(*v_ptr).is_depot() {
+                    let v = &*v_ptr;
+                    let y = &*v.successor;
+                    let delta_insert = problem.distance.get(v.number, u.number)
+                        + problem.distance.get(u.number, y.number)
+                        - problem.distance.get(v.number, y.number);
+                    let cost = delta_insert as FloatType;
+
                     self.best_inserts
                         .get_mut(r2.index, u.number)
-                        .last_calculated = self.move_count;
-                    let mut v_ptr = (*r2.start_depot).successor;
-                    let cost = problem.distance.get(0, u.number)
-                        + problem.distance.get(u.number, (*v_ptr).number)
-                        - problem.distance.get(0, (*v_ptr).number);
-                    self.best_inserts
-                        .get_mut(r2.index, u.number)
-                        .add(InsertLocation {
-                            cost: cost as FloatType,
-                            node: r2.start_depot,
-                        });
-                    while !(*v_ptr).is_depot() {
-                        let v = &*v_ptr;
-                        let y = &*v.successor;
-                        let delta_insert = problem.distance.get(v.number, u.number)
-                            + problem.distance.get(u.number, y.number)
-                            - problem.distance.get(v.number, y.number);
-                        let cost = delta_insert as FloatType;
+                        .add(InsertLocation { cost, node: v_ptr });
 
-                        self.best_inserts
-                            .get_mut(r2.index, u.number)
-                            .add(InsertLocation { cost, node: v_ptr });
-
-                        v_ptr = v.successor;
-                    }
+                    v_ptr = v.successor;
                 }
-                u_ptr = u.successor;
             }
+            u_ptr = u.successor;
         }
     }
 
+    /// Finds the cheapest insert location of u into the route of v,
+    /// while v is removed at the same time
     pub unsafe fn cheapest_insert_and_removal(
         &mut self,
         u_ptr: *mut Node,
         v_ptr: *mut Node,
     ) -> (*mut Node, FloatType) {
+        // Derefence pointers and setup local variables
         let u = &*u_ptr;
         let v = &*v_ptr;
         let r2 = &(*v.route);
+        let problem = &self.ctx.problem;
+
+        // Start with the best insertion into route v.
         let best_insertion = self.best_inserts.get_mut(r2.index, u.number);
         let mut best_node = best_insertion.locations[0].node;
         let mut best_cost = best_insertion.locations[0].cost;
+
+        // Found is true if the best insert position is neither directly before or after v.
+        // If the best insert position involves v, the position is illegal when v is removed,
+        // and thus we must use the second or third best insert position.
         let mut found =
             (*best_node).number != v.number && (*(*best_node).successor).number != v.number;
         if !found && !best_insertion.locations[1].node.is_null() {
@@ -671,19 +710,22 @@ impl LocalSearch {
             }
         }
 
-        let problem = &self.ctx.problem;
-
         let v_prev = &*(v.predecessor);
         let y = &*(v.successor);
+
+        // Calculate the cost of inserting u in place of v, as
+        // the best position already found is into route 2 while v is still present
         let delta_cost = (problem.distance.get(v_prev.number, u.number)
             + problem.distance.get(u.number, y.number)
             - problem.distance.get(v_prev.number, y.number)) as FloatType;
 
+        // Update best insertion if it's cheaper to insert in place of v
         if !found || delta_cost < best_cost {
             best_node = v.predecessor;
             best_cost = delta_cost;
         }
 
+        // Returns the best insert position (right after the `best_node`) with a cost of `best_cost`
         (best_node, best_cost)
     }
 }

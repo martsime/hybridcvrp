@@ -1,12 +1,12 @@
 use crate::models::FloatType;
-use crate::solver::improvement::moves::ImprovementHeuristic;
+use crate::solver::improvement::moves::Move;
 use crate::solver::improvement::{
     backward_reverse, forward_reverse, link_nodes, replace_end_depot, route_cost, LocalSearch, Node,
 };
 
 pub struct TwoOptIntraReverse;
 
-impl ImprovementHeuristic for TwoOptIntraReverse {
+impl Move for TwoOptIntraReverse {
     fn move_name(&self) -> &'static str {
         "TwoOptIntraReverse"
     }
@@ -53,7 +53,7 @@ impl ImprovementHeuristic for TwoOptIntraReverse {
 
 pub struct TwoOptInterReverse;
 
-impl ImprovementHeuristic for TwoOptInterReverse {
+impl Move for TwoOptInterReverse {
     fn move_name(&self) -> &'static str {
         "TwoOptInterReverse"
     }
@@ -117,7 +117,7 @@ impl ImprovementHeuristic for TwoOptInterReverse {
 
 pub struct TwoOptInter;
 
-impl ImprovementHeuristic for TwoOptInter {
+impl Move for TwoOptInter {
     fn move_name(&self) -> &'static str {
         "TwoOptInter"
     }

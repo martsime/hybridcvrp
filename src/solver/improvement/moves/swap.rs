@@ -1,13 +1,10 @@
-use std::ptr;
-
-use crate::solver::improvement::localsearch::Route;
-use crate::solver::improvement::moves::ImprovementHeuristic;
-use crate::solver::improvement::{insert_node, link_nodes, route_cost, LocalSearch, Node};
-use crate::{constants::EPSILON, models::FloatType};
+use crate::models::FloatType;
+use crate::solver::improvement::moves::Move;
+use crate::solver::improvement::{link_nodes, route_cost, LocalSearch, Node};
 
 pub struct SwapOneWithOne;
 
-impl ImprovementHeuristic for SwapOneWithOne {
+impl Move for SwapOneWithOne {
     fn move_name(&self) -> &'static str {
         "SwapOneWithOne"
     }
@@ -92,7 +89,7 @@ impl ImprovementHeuristic for SwapOneWithOne {
 
 pub struct SwapTwoWithOne;
 
-impl ImprovementHeuristic for SwapTwoWithOne {
+impl Move for SwapTwoWithOne {
     fn move_name(&self) -> &'static str {
         "SwapTwoWithOne"
     }
@@ -186,7 +183,7 @@ impl ImprovementHeuristic for SwapTwoWithOne {
 
 pub struct SwapTwoWithTwo;
 
-impl ImprovementHeuristic for SwapTwoWithTwo {
+impl Move for SwapTwoWithTwo {
     fn move_name(&self) -> &'static str {
         "SwapTwoWithTwo"
     }
@@ -286,164 +283,5 @@ impl ImprovementHeuristic for SwapTwoWithTwo {
         if (*r1).index != (*r2).index {
             ls.update_route(r2);
         }
-    }
-}
-
-pub struct BestSwapStar {
-    pub cost: FloatType,
-    pub u: *mut Node,
-    pub v: *mut Node,
-    pub pos_u: *mut Node,
-    pub pos_v: *mut Node,
-}
-
-impl BestSwapStar {
-    pub fn new() -> Self {
-        Self {
-            cost: FloatType::INFINITY,
-            u: ptr::null_mut(),
-            v: ptr::null_mut(),
-            pos_u: ptr::null_mut(),
-            pos_v: ptr::null_mut(),
-        }
-    }
-}
-
-pub struct SwapStar;
-
-impl SwapStar {
-    pub fn move_name() -> &'static str {
-        "SwapStar"
-    }
-    pub unsafe fn run(ls: &mut LocalSearch, r1_ptr: *mut Route, r2_ptr: *mut Route) -> bool {
-        let mut best_move = BestSwapStar::new();
-        let problem = &ls.ctx.problem;
-        ls.preprocess_insertions(r1_ptr, r2_ptr);
-        ls.preprocess_insertions(r2_ptr, r1_ptr);
-
-        // log::info!("Preprocessing done!");
-
-        let r1 = &*r1_ptr;
-        let r2 = &*r2_ptr;
-        let mut u_ptr = (*r1.start_depot).successor;
-        while !(*u_ptr).is_depot() {
-            // log::info!("u_loop");
-            let u = &*u_ptr;
-            let mut v_ptr = (*r2.start_depot).successor;
-            while !(*v_ptr).is_depot() {
-                // log::info!("v_loop");
-                let v = &*v_ptr;
-                // TODO:
-                let delta_penalty_r1 = 0.max(
-                    r1.overload - problem.nodes[u.number].demand + problem.nodes[v.number].demand,
-                ) as FloatType
-                    * ls.penalty_capacity
-                    - 0.max(r1.overload) as FloatType * ls.penalty_capacity;
-                let delta_penalty_r2 = 0.max(
-                    r2.overload + problem.nodes[u.number].demand - problem.nodes[v.number].demand,
-                ) as FloatType
-                    * ls.penalty_capacity
-                    - 0.max(r2.overload) as FloatType * ls.penalty_capacity;
-
-                if u.delta_removal as FloatType
-                    + v.delta_removal as FloatType
-                    + delta_penalty_r1
-                    + delta_penalty_r2
-                    <= 0.0
-                {
-                    let mut m = BestSwapStar::new();
-                    m.u = u_ptr;
-                    m.v = v_ptr;
-                    let (best_pos_u, extra_v) = ls.cheapest_insert_and_removal(u_ptr, v_ptr);
-                    let (best_pos_v, extra_u) = ls.cheapest_insert_and_removal(v_ptr, u_ptr);
-                    m.pos_u = best_pos_u;
-                    m.pos_v = best_pos_v;
-                    m.cost = u.delta_removal as FloatType
-                        + delta_penalty_r1
-                        + extra_u
-                        + v.delta_removal as FloatType
-                        + delta_penalty_r2
-                        + extra_v;
-                    if m.cost < best_move.cost {
-                        best_move = m;
-                    }
-                }
-
-                v_ptr = v.successor;
-            }
-            u_ptr = u.successor;
-        }
-
-        let mut u_ptr = (*r1.start_depot).successor;
-        while !(*u_ptr).is_depot() {
-            let u = &*u_ptr;
-            let mut m = BestSwapStar::new();
-            m.u = u_ptr;
-            let best_insert = &ls.best_inserts.get(r2.index, u.number).locations[0];
-            m.pos_u = best_insert.node;
-            let delta_penalty_r1 = 0.max(r1.overload - problem.nodes[u.number].demand) as FloatType
-                * ls.penalty_capacity
-                - 0.max(r1.overload) as FloatType * ls.penalty_capacity;
-            let delta_penalty_r2 = 0.max(r2.overload + problem.nodes[u.number].demand) as FloatType
-                * ls.penalty_capacity
-                - 0.max(r2.overload) as FloatType * ls.penalty_capacity;
-            m.cost = u.delta_removal as FloatType
-                + best_insert.cost
-                + delta_penalty_r1
-                + delta_penalty_r2;
-
-            if m.cost < best_move.cost {
-                best_move = m;
-            }
-
-            u_ptr = u.successor;
-        }
-
-        let mut v_ptr = (*r2.start_depot).successor;
-        while !(*v_ptr).is_depot() {
-            let v = &*v_ptr;
-            let mut m = BestSwapStar::new();
-            m.v = v_ptr;
-            let best_insert = &ls.best_inserts.get(r1.index, v.number).locations[0];
-            m.pos_v = best_insert.node;
-            let delta_penalty_r1 = 0.max(r1.overload + problem.nodes[v.number].demand) as FloatType
-                * ls.penalty_capacity
-                - 0.max(r1.overload) as FloatType * ls.penalty_capacity;
-            let delta_penalty_r2 = 0.max(r2.overload - problem.nodes[v.number].demand) as FloatType
-                * ls.penalty_capacity
-                - 0.max(r2.overload) as FloatType * ls.penalty_capacity;
-            m.cost = v.delta_removal as FloatType
-                + best_insert.cost
-                + delta_penalty_r1
-                + delta_penalty_r2;
-
-            if m.cost < best_move.cost {
-                best_move = m;
-            }
-
-            v_ptr = v.successor;
-        }
-
-        if best_move.cost > -EPSILON {
-            return false;
-        }
-
-        // ls.ctx
-        //     .meta
-        //     .add_improvement(Self::move_name(), -best_move.cost);
-
-        ls.move_count += 1;
-        if !best_move.pos_u.is_null() {
-            insert_node(best_move.u, best_move.pos_u);
-        }
-        if !best_move.pos_v.is_null() {
-            insert_node(best_move.v, best_move.pos_v);
-        }
-
-        // Update routes
-        ls.update_route(r1_ptr);
-        ls.update_route(r2_ptr);
-
-        true
     }
 }

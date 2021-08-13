@@ -4,6 +4,9 @@ pub use self::relocation::*;
 mod swap;
 pub use self::swap::*;
 
+mod swap_star;
+pub use self::swap_star::*;
+
 mod two_opt;
 pub use self::two_opt::*;
 
@@ -11,16 +14,16 @@ use crate::models::FloatType;
 use crate::solver::improvement::{LocalSearch, Node};
 use crate::solver::Context;
 
-pub trait ImprovementHeuristic {
+pub trait Move {
     fn move_name(&self) -> &'static str;
     unsafe fn delta(&self, ls: &LocalSearch, node_u: *mut Node, node_v: *mut Node) -> FloatType;
     unsafe fn perform(&self, ls: &mut LocalSearch, node_u: *mut Node, node_v: *mut Node);
 }
 
 pub struct Moves {
-    pub neighbor: Vec<Box<dyn ImprovementHeuristic>>,
-    pub depot: Vec<Box<dyn ImprovementHeuristic>>,
-    pub empty_route: Vec<Box<dyn ImprovementHeuristic>>,
+    pub neighbor: Vec<Box<dyn Move>>,
+    pub depot: Vec<Box<dyn Move>>,
+    pub empty_route: Vec<Box<dyn Move>>,
 }
 
 impl Moves {
@@ -32,8 +35,8 @@ impl Moves {
         }
     }
 
-    fn neighborhood_moves(ctx: &Context) -> Vec<Box<dyn ImprovementHeuristic>> {
-        let mut moves: Vec<Box<dyn ImprovementHeuristic>> = Vec::new();
+    fn neighborhood_moves(ctx: &Context) -> Vec<Box<dyn Move>> {
+        let mut moves: Vec<Box<dyn Move>> = Vec::new();
         if ctx.config.borrow().relocate_single {
             moves.push(Box::new(RelocateSingle));
         }
@@ -64,8 +67,8 @@ impl Moves {
         moves
     }
 
-    fn depot_moves(ctx: &Context) -> Vec<Box<dyn ImprovementHeuristic>> {
-        let mut moves: Vec<Box<dyn ImprovementHeuristic>> = Vec::new();
+    fn depot_moves(ctx: &Context) -> Vec<Box<dyn Move>> {
+        let mut moves: Vec<Box<dyn Move>> = Vec::new();
         if ctx.config.borrow().relocate_single {
             moves.push(Box::new(RelocateSingle));
         }
@@ -84,8 +87,8 @@ impl Moves {
         moves
     }
 
-    fn empty_route_moves(ctx: &Context) -> Vec<Box<dyn ImprovementHeuristic>> {
-        let mut moves: Vec<Box<dyn ImprovementHeuristic>> = Vec::new();
+    fn empty_route_moves(ctx: &Context) -> Vec<Box<dyn Move>> {
+        let mut moves: Vec<Box<dyn Move>> = Vec::new();
         if ctx.config.borrow().relocate_single {
             moves.push(Box::new(RelocateSingle));
         }
