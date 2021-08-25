@@ -1,9 +1,6 @@
 use crate::models::FloatType;
-use crate::solver::improvement::linked_list::{
-    backward_reverse, forward_reverse, link_nodes, replace_end_depot, LinkNode,
-};
-use crate::solver::improvement::moves::Move;
-use crate::solver::improvement::{route_cost, LocalSearch};
+use crate::solver::evaluate::route_cost;
+use crate::solver::improvement::{LinkNode, LocalSearch, Move};
 
 pub struct TwoOptIntraReverse;
 
@@ -50,9 +47,9 @@ impl Move for TwoOptIntraReverse {
         let r1 = (*u_rc).route;
         let x_rc = (*u_rc).successor;
         let y_rc = (*v_rc).successor;
-        backward_reverse(v_rc, x_rc, std::ptr::null_mut());
-        link_nodes(u_rc, v_rc);
-        link_nodes(x_rc, y_rc);
+        LinkNode::backward_reverse(v_rc, x_rc, std::ptr::null_mut());
+        LinkNode::link_nodes(u_rc, v_rc);
+        LinkNode::link_nodes(x_rc, y_rc);
         ls.update_route(r1);
     }
 }
@@ -109,17 +106,17 @@ impl Move for TwoOptInterReverse {
         log::debug!("u: {}, route: {}", (*u_rc).number, *r1);
         log::debug!("v: {}, route: {}", (*v_rc).number, *r2);
         if !(*v_rc).is_depot() {
-            backward_reverse(v_rc, std::ptr::null_mut(), (*r1).end_depot);
+            LinkNode::backward_reverse(v_rc, std::ptr::null_mut(), (*r1).end_depot);
         } else {
             v_rc = (*r1).end_depot;
         }
-        link_nodes(u_rc, v_rc);
+        LinkNode::link_nodes(u_rc, v_rc);
         if !(*x_rc).is_depot() {
-            forward_reverse(x_rc, std::ptr::null_mut(), (*r2).start_depot);
+            LinkNode::forward_reverse(x_rc, std::ptr::null_mut(), (*r2).start_depot);
         } else {
             x_rc = (*r2).start_depot;
         }
-        link_nodes(x_rc, y_rc);
+        LinkNode::link_nodes(x_rc, y_rc);
 
         ls.update_route(r1);
         ls.update_route(r2);
@@ -175,10 +172,10 @@ impl Move for TwoOptInter {
         let r2 = (*v_rc).route;
         let x_rc = (*u_rc).successor;
         let y_rc = (*v_rc).successor;
-        link_nodes(u_rc, y_rc);
-        link_nodes(v_rc, x_rc);
-        replace_end_depot(v_rc, (*r2).end_depot);
-        replace_end_depot(u_rc, (*r1).end_depot);
+        LinkNode::link_nodes(u_rc, y_rc);
+        LinkNode::link_nodes(v_rc, x_rc);
+        LinkNode::replace_end_depot(v_rc, (*r2).end_depot);
+        LinkNode::replace_end_depot(u_rc, (*r1).end_depot);
         ls.update_route(r1);
         ls.update_route(r2);
     }

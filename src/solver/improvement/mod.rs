@@ -1,9 +1,14 @@
 mod local_search;
 pub use self::local_search::*;
 
-pub mod moves;
+mod moves;
+pub use self::moves::*;
 
-pub mod linked_list;
+mod linked_list;
+pub use self::linked_list::*;
+
+mod preprocess;
+pub use self::preprocess::*;
 
 mod ruin_recreate;
 pub use self::ruin_recreate::*;

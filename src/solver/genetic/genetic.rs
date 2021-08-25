@@ -1,12 +1,21 @@
 use std::collections::HashSet;
 
-use crate::constants::EPSILON;
 use crate::models::FloatType;
 use crate::solver::genetic::{Individual, Population, Split};
 use crate::solver::improvement::{LocalSearch, RuinRecreate};
 use crate::solver::{Context, Metaheuristic};
 
+#[derive(PartialEq)]
+pub enum State {
+    Created,
+    EliteEducation,
+    Initialization,
+    Cycle,
+    Terminated,
+}
+
 pub struct GeneticAlgorithm {
+    pub state: State,
     pub population: Population,
     pub ls: LocalSearch,
     pub rr: RuinRecreate,
@@ -14,6 +23,9 @@ pub struct GeneticAlgorithm {
     pub iterations: u64,
     pub next_penalty_update: u64,
     pub next_log_interval: u64,
+
+    pub child: Individual,
+    pub num_initialized: u64,
 
     pub best_solution: Option<Individual>,
     pub best_iteration: u64,
@@ -26,11 +38,14 @@ pub struct GeneticAlgorithm {
 impl GeneticAlgorithm {
     pub fn new(ctx: &Context) -> Self {
         Self {
+            state: State::Created,
             population: Population::new(ctx),
             split: Split::new(ctx),
             ls: LocalSearch::new(ctx, 1.0),
             rr: RuinRecreate::new(ctx),
             iterations: 0,
+            child: Individual::new_random(ctx, 0),
+            num_initialized: 0,
             // Update penalty at this iteration
             next_penalty_update: 0,
             next_log_interval: 0,
@@ -156,46 +171,39 @@ impl GeneticAlgorithm {
         self.population.infeasible.population.sort();
     }
 
-    fn educate(&mut self, ctx: &Context, child: &mut Individual) {
+    fn educate(&mut self, ctx: &Context) {
         // Local search
+        let child = &mut self.child;
         if ctx.config.borrow().ls_enabled {
-            // let start_time = Instant::now();
             self.ls.run(ctx, child, 1.0);
-            // ctx.meta.add_duration("LS", start_time.elapsed());
         }
 
+        // R&R search
         let rnd = ctx.random.real();
         if ctx.config.borrow().rr_mutation && rnd < ctx.config.borrow().rr_probability {
-            let cost_before = child.penalized_cost();
-            // let start_time = Instant::now();
-            self.rr.run(ctx, child, cost_before);
-            // ctx.meta.add_duration("R&R", start_time.elapsed());
-            if self.rr.best_cost() + EPSILON < self.current_best_solution_cost
-                || ctx.random.real() < (1.0 - ctx.config.borrow().rr_acceptance_alpha)
-            {
-                self.rr.get_best_solution(child);
-            } else {
-                self.rr.get_solution(child);
+            self.rr.load(ctx, child);
+            while !self.rr.complete() {
+                self.rr.search();
             }
+            self.rr.get_best_solution(child);
         }
 
-        // Repair with probability
+        // Repair with probability using local search with higher penalty
         if !child.is_feasible() && ctx.random.real() < ctx.config.borrow().repair_probability {
-            let mut repaired_child = child.clone();
-            // repaired_child.number += self.population.total_individuals_count;
+            let unrepaired_child = child.clone();
             if ctx.config.borrow().ls_enabled {
-                // let start_time = Instant::now();
-                self.ls.run(ctx, &mut repaired_child, 10.0);
-                // ctx.meta.add_duration("LS Repair", start_time.elapsed());
+                self.ls.run(ctx, &mut self.child, 10.0);
             }
-            if repaired_child.is_feasible() {
-                self.update_best(ctx, &repaired_child);
-                self.population.add_individual(ctx, repaired_child, false);
+            if self.child.is_feasible() {
+                self.update_best(ctx);
+                self.population
+                    .add_individual(ctx, self.child.clone(), false);
             }
+            self.child = unrepaired_child;
         }
 
         // Update best solution
-        self.update_best(ctx, &child);
+        self.update_best(ctx);
     }
 
     fn log(&mut self, ctx: &Context) {
@@ -234,16 +242,16 @@ impl GeneticAlgorithm {
         log::info!("{}", log_text);
     }
 
-    fn update_best(&mut self, ctx: &Context, individual: &Individual) {
-        if individual.is_feasible() && individual.penalized_cost() < self.current_best_solution_cost
+    fn update_best(&mut self, ctx: &Context) {
+        if self.child.is_feasible() && self.child.penalized_cost() < self.current_best_solution_cost
         {
             self.best_iteration = self.iterations;
-            self.current_best_solution_cost = individual.penalized_cost();
+            self.current_best_solution_cost = self.child.penalized_cost();
             let mut search_history = ctx.search_history.borrow_mut();
             if self.current_best_solution_cost < search_history.best_cost {
-                self.best_solution = Some(individual.clone());
-                search_history.add_message(format!("New best: {:.2}", individual.penalized_cost()));
-                search_history.add(ctx, &individual);
+                self.best_solution = Some(self.child.clone());
+                search_history.add_message(format!("New best: {:.2}", self.child.penalized_cost()));
+                search_history.add(ctx, &self.child);
             }
         }
     }
@@ -257,101 +265,98 @@ impl GeneticAlgorithm {
         self.next_log_interval = self.iterations;
         self.current_best_solution_cost = FloatType::INFINITY;
         self.best_iteration = self.iterations;
-        self.init(ctx);
+        self.state = State::Created;
     }
 }
 
 impl Metaheuristic for GeneticAlgorithm {
     fn iterate(&mut self, ctx: &Context) {
-        // Select two parents and perform crossover
-        let parent_one = self.population.get_parent(ctx);
-        let parent_two = self.population.get_parent(ctx);
-        let mut child = self.crossover(ctx, parent_one, parent_two);
-
-        // Max number of routes the child is allowed to get
-        let max_routes = parent_one.num_nonempty_routes();
-        self.split.run(ctx, &mut child, max_routes as u64);
-
-        // Educate child
-        self.educate(ctx, &mut child);
-
-        // Add child to population
-        self.population.add_individual(ctx, child, true);
-
-        // Update penalties at interval
-        if self.iterations >= self.next_penalty_update {
-            self.update_penalty(ctx);
+        if ctx.terminate() {
+            self.state = State::Terminated;
         }
-
-        // Log at interval
-        if self.iterations >= self.next_log_interval {
-            self.log(ctx);
-        }
-
-        // Possible reset of population
-        if self.iterations - self.best_iteration > ctx.config.borrow().max_iterations {
-            self.reset(ctx);
-        }
-
-        // Update number of iterations
-        self.iterations += 1;
-    }
-
-    fn init(&mut self, ctx: &Context) {
-        let num = ctx.config.borrow().initial_individuals;
-        let max_routes = ctx.config.borrow().num_vehicles as usize;
-        if ctx.config.borrow().elite_education
-            && ctx.problem.num_customers() > ctx.config.borrow().dive_problem_size_limit
-        {
-            ctx.search_history
-                .borrow_mut()
-                .add_message(format!("Elite Education"));
-            let mut child = Individual::new_random(ctx, 0);
-            let mut penalty_multiplier = 1.0;
-            self.split.run(ctx, &mut child, max_routes as u64);
-            self.educate(ctx, &mut child);
-
-            while !child.is_feasible() {
-                if penalty_multiplier < 1000.0 {
-                    penalty_multiplier *= 5.0;
-                    self.ls.run(ctx, &mut child, penalty_multiplier);
+        match self.state {
+            State::Created => {
+                if ctx.config.borrow().elite_education
+                    && ctx.problem.num_customers()
+                        > ctx.config.borrow().elite_education_problem_size_limit
+                {
+                    // Setup Elite Education
+                    self.state = State::EliteEducation;
+                    let max_routes = ctx.config.borrow().num_vehicles as usize;
+                    self.split.run(ctx, &mut self.child, max_routes as u64);
+                    self.educate(ctx);
+                    self.rr.setup_elite_education(ctx);
+                    self.rr.load(ctx, &mut self.child);
                 } else {
-                    child = Individual::new_random(ctx, 0);
-                    penalty_multiplier = 1.0;
-                    self.split.run(ctx, &mut child, max_routes as u64);
-                    self.educate(ctx, &mut child);
+                    self.state = State::Initialization;
                 }
             }
-            let cost_limit = child.penalized_cost();
-            self.rr.setup_dive(ctx);
-            self.rr.run(ctx, &mut child, cost_limit);
-            self.rr.get_best_solution(&mut child);
-            self.update_best(ctx, &child);
-            self.population.add_individual(ctx, child, false);
-            ctx.search_history
-                .borrow_mut()
-                .add_message(format!("Elite Education Complete"));
-            self.rr.setup_mutation(ctx);
-            self.log(ctx);
-        }
-
-        ctx.search_history
-            .borrow_mut()
-            .add_message(format!("Generating population"));
-        for _ in 0..num {
-            // Early stop if the program should terminate
-            if ctx.terminate() {
-                return;
+            State::EliteEducation => {
+                if !self.rr.complete() {
+                    self.rr.search();
+                } else {
+                    self.state = State::Initialization;
+                    self.rr.get_best_solution(&mut self.child);
+                    self.update_best(ctx);
+                    self.population
+                        .add_individual(ctx, self.child.clone(), false);
+                    self.rr.setup_mutation(ctx);
+                    self.log(ctx);
+                }
             }
-            // Create random individual
-            let indiviual_number = self.population.total_individuals_count;
-            let mut child = Individual::new_random(ctx, indiviual_number);
-            self.split.run(ctx, &mut child, max_routes as u64);
-            self.educate(ctx, &mut child);
-            self.population.add_individual(ctx, child, true);
+            State::Initialization => {
+                if self.num_initialized < ctx.config.borrow().initial_individuals {
+                    // Create random individual
+                    let max_routes = ctx.config.borrow().num_vehicles;
+                    self.child = Individual::new_random(ctx, self.num_initialized);
+                    self.split.run(ctx, &mut self.child, max_routes);
+                    self.educate(ctx);
+                    self.population
+                        .add_individual(ctx, self.child.clone(), true);
+                    self.num_initialized += 1;
+                } else {
+                    self.state = State::Cycle;
+                }
+            }
+            State::Cycle => {
+                // Select two parents and perform crossover
+                let parent_one = self.population.get_parent(ctx);
+                let parent_two = self.population.get_parent(ctx);
+                self.child = self.crossover(ctx, parent_one, parent_two);
+
+                // Max number of routes the child is allowed to get
+                let max_routes = parent_one.num_nonempty_routes();
+                self.split.run(ctx, &mut self.child, max_routes as u64);
+
+                // Educate child
+                self.educate(ctx);
+
+                // Add child to population
+                self.population
+                    .add_individual(ctx, self.child.clone(), true);
+
+                // Update penalties at interval
+                if self.iterations >= self.next_penalty_update {
+                    self.update_penalty(ctx);
+                }
+
+                // Log at interval
+                if self.iterations >= self.next_log_interval {
+                    self.log(ctx);
+                }
+
+                // Possible reset of population
+                if self.iterations - self.best_iteration > ctx.config.borrow().max_iterations {
+                    self.reset(ctx);
+                }
+
+                // Update number of iterations
+                self.iterations += 1;
+            }
+            State::Terminated => {}
         }
-        ctx.search_history
-            .borrow_mut()
-            .add_message(format!("Population generated"));
+    }
+    fn terminated(&self) -> bool {
+        self.state == State::Terminated
     }
 }

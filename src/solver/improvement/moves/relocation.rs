@@ -1,7 +1,6 @@
 use crate::models::FloatType;
-use crate::solver::improvement::linked_list::{link_nodes, LinkNode};
-use crate::solver::improvement::moves::Move;
-use crate::solver::improvement::{route_cost, LocalSearch};
+use crate::solver::evaluate::route_cost;
+use crate::solver::improvement::{LinkNode, LocalSearch, Move};
 
 pub struct RelocateSingle;
 
@@ -67,11 +66,11 @@ impl Move for RelocateSingle {
         let y_rc = (*v_rc).successor;
 
         // Update (up, u, x) -> (up, x)
-        link_nodes(u_pred_rc, x_rc);
+        LinkNode::link_nodes(u_pred_rc, x_rc);
 
         // Update (v, y) -> (v, u, y)
-        link_nodes(v_rc, u_rc);
-        link_nodes(u_rc, y_rc);
+        LinkNode::link_nodes(v_rc, u_rc);
+        LinkNode::link_nodes(u_rc, y_rc);
 
         // Update routes
         ls.update_route(r1);
@@ -155,11 +154,11 @@ impl Move for RelocateDouble {
         let y_rc = (*v_rc).successor;
 
         // Update (up, u, x, xn) -> (up, xn)
-        link_nodes(u_prev_rc, x_next_rc);
+        LinkNode::link_nodes(u_prev_rc, x_next_rc);
 
         // Update (v, y) -> (v, u, x, y)
-        link_nodes(v_rc, u_rc);
-        link_nodes(x_rc, y_rc);
+        LinkNode::link_nodes(v_rc, u_rc);
+        LinkNode::link_nodes(x_rc, y_rc);
 
         // Update routes
         ls.update_route(r1);
@@ -243,16 +242,16 @@ impl Move for RelocateDoubleReverse {
         let y_rc = (*v_rc).successor;
 
         // Link (up) -> (xn)
-        link_nodes(u_prev_rc, x_next_rc);
+        LinkNode::link_nodes(u_prev_rc, x_next_rc);
 
         // Link (v) -> (x)
-        link_nodes(v_rc, x_rc);
+        LinkNode::link_nodes(v_rc, x_rc);
 
         // Link (x) -> (u)
-        link_nodes(x_rc, u_rc);
+        LinkNode::link_nodes(x_rc, u_rc);
 
         // Link (u) -> (y)
-        link_nodes(u_rc, y_rc);
+        LinkNode::link_nodes(u_rc, y_rc);
 
         // Update routes
         ls.update_route(r1);

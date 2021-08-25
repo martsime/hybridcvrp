@@ -6,20 +6,20 @@ use serde::{Deserialize, Serialize};
 use crate::config::Config;
 use crate::models::{FloatType, IntType, Matrix};
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Coordinate {
     pub lng: IntType,
     pub lat: IntType,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Node {
     pub id: usize,
     pub coord: Coordinate,
     pub demand: IntType,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Vehicle {
     pub id: usize,
     pub cap: IntType,
@@ -308,7 +308,6 @@ impl Problem {
         let angle = (((y.atan2(x) / std::f64::consts::PI as FloatType) * 32768.0).round()
             as IntType)
             .rem_euclid(65536);
-        // println!("Node: {}, angle: {}", node, angle);
         angle
     }
 }

@@ -1,4 +1,4 @@
-use std::time::Instant;
+use instant::Instant;
 
 use hybridcvrp::cli::Args;
 use hybridcvrp::config::Config;

@@ -6,70 +6,11 @@ use ahash::RandomState;
 
 use crate::constants::EPSILON;
 use crate::models::{FloatType, IntType, Matrix};
+use crate::solver::evaluate::route_cost;
 use crate::solver::genetic::Individual;
-use crate::solver::improvement::linked_list::{link_nodes, LinkNode, LinkRoute};
 use crate::solver::improvement::moves::{Moves, SwapStar};
+use crate::solver::improvement::{InsertLocation, LinkNode, LinkRoute, ThreeBestInserts};
 use crate::solver::Context;
-
-#[inline]
-pub fn route_cost(distance: IntType, overload: IntType, penalty: FloatType) -> FloatType {
-    distance as FloatType + penalty * max(0, overload) as FloatType
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct InsertLocation {
-    pub cost: FloatType,
-    pub node: *mut LinkNode,
-}
-
-impl InsertLocation {
-    pub fn new() -> Self {
-        Self {
-            cost: FloatType::INFINITY,
-            node: ptr::null_mut(),
-        }
-    }
-
-    pub fn reset(&mut self) {
-        self.cost = FloatType::INFINITY;
-        self.node = ptr::null_mut();
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct ThreeBestInserts {
-    pub locations: [InsertLocation; 3],
-    pub last_calculated: IntType,
-}
-
-impl ThreeBestInserts {
-    pub fn new() -> Self {
-        Self {
-            locations: [InsertLocation::new(); 3],
-            last_calculated: 0,
-        }
-    }
-
-    pub fn reset(&mut self) {
-        for loc in self.locations.iter_mut() {
-            loc.reset();
-        }
-    }
-
-    pub fn add(&mut self, loc: InsertLocation) {
-        if loc.cost > self.locations[2].cost {
-        } else if loc.cost > self.locations[1].cost {
-            self.locations[2] = loc;
-        } else if loc.cost > self.locations[0].cost {
-            self.locations[2] = self.locations[1];
-            self.locations[1] = loc;
-        } else {
-            self.locations[2] = self.locations[1];
-            self.locations[1] = self.locations[0];
-            self.locations[0] = loc;
-        }
-    }
-}
 
 pub struct LocalSearch {
     pub ctx: &'static Context,
@@ -162,19 +103,19 @@ impl LocalSearch {
     pub fn load_individual(&mut self, individual: &Individual) {
         unsafe {
             for (route_index, route) in individual.phenotype.iter().enumerate() {
-                // Start with the depot as the last node
-                let mut last_node = &mut self.start_depots[route_index] as *mut LinkNode;
+                // Start with the depot as the prev node
+                let mut prev_node = &mut self.start_depots[route_index] as *mut LinkNode;
 
                 // Link up all nodes
                 for &node_index in route.iter() {
                     let node = &mut self.nodes[node_index] as *mut LinkNode;
-                    link_nodes(last_node, node);
-                    last_node = node;
+                    LinkNode::link_nodes(prev_node, node);
+                    prev_node = node;
                 }
 
-                // Link the last node to the end depot
+                // Link the prev node to the end depot
                 let depot_end = &mut self.end_depots[route_index] as *mut LinkNode;
-                link_nodes(last_node, depot_end);
+                LinkNode::link_nodes(prev_node, depot_end);
 
                 let route = &mut self.routes[route_index] as *mut LinkRoute;
                 (*route).last_tested_swap_star = -1;
@@ -236,7 +177,7 @@ impl LocalSearch {
                 let u = &mut self.nodes[*u_index] as *mut LinkNode;
                 let mut route_u = (*u).route;
 
-                // Update RI timestamp for node u
+                // Update timestamp for node u
                 let last_test_u = (*u).last_tested;
                 (*u).last_tested = self.move_count;
 
@@ -249,6 +190,7 @@ impl LocalSearch {
                     if loop_count == 0
                         || max((*route_u).last_modified, (*route_v).last_modified) > last_test_u
                     {
+                        // First, all the moves for the pair of customers are attempted
                         for m in moves.neighbor.iter() {
                             let delta = m.delta(&self, u, v);
                             if delta + EPSILON < 0.0 {
@@ -256,10 +198,12 @@ impl LocalSearch {
                                 m.perform(self, u, v);
                                 route_u = (*u).route;
                                 improvement = true;
-                                // self.ctx.meta.add_improvement(m.move_name(), -delta);
                                 continue 'v_loop;
                             }
                         }
+
+                        // If none of the moves above are successful, we attempt moves where
+                        // `u` is located directly after a depot
                         let v_pred = (*v).predecessor;
                         if (*v_pred).is_depot() {
                             for m in moves.depot.iter() {
@@ -269,13 +213,17 @@ impl LocalSearch {
                                     m.perform(self, u, v);
                                     route_u = (*u).route;
                                     improvement = true;
-                                    // self.ctx.meta.add_improvement(m.move_name(), -delta);
                                     continue 'v_loop;
                                 }
                             }
                         }
                     }
                 }
+
+                // Additional moves where node where route of `v` is an emtpy route.
+                //
+                // These moves are not tested in the first iteration of the local search to prevent
+                // increasing the number of routes too early
                 if loop_count > 0 && !self.empty_routes.is_empty() {
                     let empty_route_index =
                         *self.empty_routes.iter().next().expect("No empty route");
@@ -287,12 +235,13 @@ impl LocalSearch {
                             self.move_count += 1;
                             m.perform(self, u, v);
                             improvement = true;
-                            // self.ctx.meta.add_improvement(m.move_name(), -delta);
                             break;
                         }
                     }
                 }
             }
+
+            // Finally the SWAP* move is performed for all pairs of routes with overlapping circle sectors
             if self.ctx.config.borrow().swap_star {
                 for r1_num in 0..self.routes.len() {
                     let r1_ptr = &mut self.routes[r1_num] as *mut LinkRoute;

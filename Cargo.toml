@@ -4,10 +4,14 @@ version = "0.1.0"
 authors = ["martsime <martsime@users.noreply.github.com>"]
 edition = "2018"
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [features]
 default = []
 
 unsafe-speedup = []
+wasm = ["wasm-bindgen", "console_error_panic_hook", "js-sys"]
 
 [dependencies]
 ahash = "0.7.2"
@@ -21,6 +25,12 @@ lazy_static = "1.4.0"
 log = "0.4.14"
 serde = { version = "1.0.119", features = ["derive", "rc"] }
 serde_yaml = "0.8.15"
+instant = { version = "0.1.10", features = ["wasm-bindgen"] } 
+
+# WASM dependencies
+wasm-bindgen = { version = "0.2.63", features = ["serde-serialize"], optional = true }
+console_error_panic_hook = { version = "0.1.6", optional = true }
+js-sys = { version = "0.3.53", optional = true }
 
 [profile.release]
-debug = true
+lto = true

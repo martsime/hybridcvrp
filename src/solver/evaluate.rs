@@ -1,5 +1,12 @@
+use std::cmp::max;
+
 use crate::models::{FloatType, IntType};
 use crate::solver::Context;
+
+#[inline]
+pub fn route_cost(distance: IntType, overload: IntType, penalty: FloatType) -> FloatType {
+    distance as FloatType + penalty * max(0, overload) as FloatType
+}
 
 #[derive(Debug, Clone)]
 pub struct RouteEvaluation {
@@ -20,6 +27,7 @@ impl RouteEvaluation {
             penalized_cost: FloatType::INFINITY,
         }
     }
+    
 }
 
 #[derive(Debug, Clone)]
@@ -110,7 +118,7 @@ impl SolutionEvaluation {
 
             // Add the penalized cost
             self.routes[route_index].penalized_cost =
-                route_distance as FloatType + 0.max(overload) as FloatType * penalty_capacity;
+                route_cost(route_distance, overload, penalty_capacity);
             total_penalized_cost += self.routes[route_index].penalized_cost;
 
             if overload > 0 {

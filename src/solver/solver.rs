@@ -3,7 +3,7 @@ use crate::utils;
 
 pub trait Metaheuristic {
     fn iterate(&mut self, ctx: &Context);
-    fn init(&mut self, ctx: &Context);
+    fn terminated(&self) -> bool;
 }
 
 pub struct Solver<M>
@@ -23,8 +23,7 @@ where
     }
 
     pub fn run(&mut self) {
-        self.metaheuristic.init(&self.ctx);
-        while !self.ctx.terminate() {
+        while !self.metaheuristic.terminated() {
             self.metaheuristic.iterate(&self.ctx);
         }
         println!("Time: {:?}, Completed", self.ctx.elapsed());

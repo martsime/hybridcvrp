@@ -1,7 +1,6 @@
 use std::ptr;
 
-use crate::solver::improvement::linked_list::{insert_node, LinkNode, LinkRoute};
-use crate::solver::improvement::LocalSearch;
+use crate::solver::improvement::{LinkNode, LinkRoute, LocalSearch};
 use crate::{constants::EPSILON, models::FloatType};
 
 pub struct BestSwapStar {
@@ -167,11 +166,11 @@ impl SwapStar {
 
         // Relocate u into route of v
         if !best_move.pos_u.is_null() {
-            insert_node(best_move.u, best_move.pos_u);
+            LinkNode::insert_node(best_move.u, best_move.pos_u);
         }
         // Relocate u into route of v
         if !best_move.pos_v.is_null() {
-            insert_node(best_move.v, best_move.pos_v);
+            LinkNode::insert_node(best_move.v, best_move.pos_v);
         }
 
         // Update routes

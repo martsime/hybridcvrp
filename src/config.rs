@@ -66,21 +66,14 @@ pub struct Config {
     pub rr_mutation: bool,
     pub rr_probability: FloatType,
     pub rr_gamma: FloatType,
-    pub rr_threshold_switch: FloatType,
-    pub rr_threshold_one: FloatType,
-    pub rr_threshold_two: FloatType,
     pub rr_final_temp: FloatType,
     pub rr_start_temp: FloatType,
     pub rr_diversify: bool,
-    pub rr_acceptance_alpha: FloatType,
 
     // Diving with ruin recreate
     pub elite_education: bool,
-    pub dive_problem_size_limit: usize,
-    pub elite_education_gamma: usize,
-    pub dive_threshold_switch: FloatType,
-    pub dive_threshold_one: FloatType,
-    pub dive_threshold_two: FloatType,
+    pub elite_education_problem_size_limit: usize,
+    pub elite_education_gamma: FloatType,
     pub elite_education_final_temp: FloatType,
     pub elite_education_start_temp: FloatType,
 }
@@ -115,15 +108,15 @@ impl Config {
             linear_split: true,
 
             // Local Search
+            ls_enabled: true,
             local_search_granularity: 20,
             dynamic_granularity: false,
             granularity_min: 10,
-            ls_enabled: true,
 
             // Local Search Moves
             relocate_single: true,
             relocate_double: true,
-            relocate_double_reverse: true,
+            relocate_double_reverse: false,
             swap_one_with_one: true,
             swap_two_with_one: true,
             swap_two_with_two: true,
@@ -146,19 +139,12 @@ impl Config {
             rr_probability: 1.0,
             rr_final_temp: 1.0,
             rr_start_temp: 10.0,
-            rr_threshold_switch: 1.0,
-            rr_threshold_one: 2.0,
-            rr_threshold_two: 2.0,
             rr_diversify: true,
-            rr_acceptance_alpha: 1.0,
 
             // Diving with ruin recreate
-            elite_education: true,
-            dive_problem_size_limit: 1,
-            elite_education_gamma: 10_000,
-            dive_threshold_switch: 0.0,
-            dive_threshold_one: 1.1,
-            dive_threshold_two: 1.1,
+            elite_education: false,
+            elite_education_problem_size_limit: 1,
+            elite_education_gamma: 1_000.0,
             elite_education_final_temp: 1.0,
             elite_education_start_temp: 50.0,
         }

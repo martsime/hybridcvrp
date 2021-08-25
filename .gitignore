@@ -11,3 +11,9 @@ tags.lock
 
 # Cargo lock files for lib crates
 *Cargo.lock
+
+# Wasm output
+/wasm
+
+# Output files
+*.sol

@@ -3,7 +3,7 @@
 ###########
 
 # Time limit in seconds
-time_limit: 10
+time_limit: 60
 
 # Boolean deciding whether the run is deterministic or stochastic
 deterministic: false
@@ -13,9 +13,6 @@ seed: 1
 
 # Number of iterations without improvement before restart: N^{IT}
 max_iterations: 20000
-
-# Boolean turning elite education on/off
-elite_education: false
 
 #####################
 # GENETIC ALGORITHM #
@@ -47,6 +44,8 @@ num_elites: 4
 # R&R SEARCH #
 ##############
 
+# Boolean turning elite education on/off
+elite_education: true
 
 # Average number of customers removed during ruin: C̅
 average_ruin_cardinality: 10
@@ -74,4 +73,4 @@ elite_education_start_temp: 50
 rr_gamma: 1
 
 # Factor determining number of R&R movesin the elite education: γ^E
-elite_education_gamma: 10000
+elite_education_gamma: 1000.0
