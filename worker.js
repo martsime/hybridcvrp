@@ -29,14 +29,14 @@ hybridcvrp("./build/wasm/hybridcvrp_bg.wasm").then((wasm) => {
 
   function updateConfig(config) {
     // Set timelimit to 1 day
-    solver.update_time_limit(BigInt(86400));
+    solver.update_time_limit(86400);
 
     // Update from config
-    solver.update_initial_individuals(BigInt(config.initialIndividuals));
-    solver.update_min_population_size(BigInt(config.minimumPopulationSize));
-    solver.update_generation_size(BigInt(config.generationSize));
-    solver.update_local_search_granularity(BigInt(config.localSearchGranularity));
-    solver.update_number_of_elites(BigInt(config.numberOfElites));
+    solver.update_initial_individuals(config.initialIndividuals);
+    solver.update_min_population_size(config.minimumPopulationSize);
+    solver.update_generation_size(config.generationSize);
+    solver.update_local_search_granularity(config.localSearchGranularity);
+    solver.update_number_of_elites(config.numberOfElites);
     solver.update_feasibility_proportion_target(config.feasibilityProportionTarget);
     solver.update_rr_gamma(config.RRGamma);
     solver.update_rr_start_temp(config.RRStartTemp);

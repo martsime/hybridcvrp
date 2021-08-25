@@ -176,10 +176,6 @@ function getInt32Memory0() {
     return cachegetInt32Memory0;
 }
 
-const u32CvtShim = new Uint32Array(2);
-
-const uint64CvtShim = new BigUint64Array(u32CvtShim.buffer);
-
 function handleError(f, args) {
     try {
         return f.apply(this, args);
@@ -242,58 +238,40 @@ class Solver {
         wasm.solver_load_problem(this.ptr);
     }
     /**
-    * @param {BigInt} value
+    * @param {number} value
     */
     update_time_limit(value) {
-        uint64CvtShim[0] = value;
-        const low0 = u32CvtShim[0];
-        const high0 = u32CvtShim[1];
-        wasm.solver_update_time_limit(this.ptr, low0, high0);
+        wasm.solver_update_time_limit(this.ptr, value);
     }
     /**
-    * @param {BigInt} value
+    * @param {number} value
     */
     update_min_population_size(value) {
-        uint64CvtShim[0] = value;
-        const low0 = u32CvtShim[0];
-        const high0 = u32CvtShim[1];
-        wasm.solver_update_min_population_size(this.ptr, low0, high0);
+        wasm.solver_update_min_population_size(this.ptr, value);
     }
     /**
-    * @param {BigInt} value
+    * @param {number} value
     */
     update_initial_individuals(value) {
-        uint64CvtShim[0] = value;
-        const low0 = u32CvtShim[0];
-        const high0 = u32CvtShim[1];
-        wasm.solver_update_initial_individuals(this.ptr, low0, high0);
+        wasm.solver_update_initial_individuals(this.ptr, value);
     }
     /**
-    * @param {BigInt} value
+    * @param {number} value
     */
     update_generation_size(value) {
-        uint64CvtShim[0] = value;
-        const low0 = u32CvtShim[0];
-        const high0 = u32CvtShim[1];
-        wasm.solver_update_generation_size(this.ptr, low0, high0);
+        wasm.solver_update_generation_size(this.ptr, value);
     }
     /**
-    * @param {BigInt} value
+    * @param {number} value
     */
     update_local_search_granularity(value) {
-        uint64CvtShim[0] = value;
-        const low0 = u32CvtShim[0];
-        const high0 = u32CvtShim[1];
-        wasm.solver_update_local_search_granularity(this.ptr, low0, high0);
+        wasm.solver_update_local_search_granularity(this.ptr, value);
     }
     /**
-    * @param {BigInt} value
+    * @param {number} value
     */
     update_number_of_elites(value) {
-        uint64CvtShim[0] = value;
-        const low0 = u32CvtShim[0];
-        const high0 = u32CvtShim[1];
-        wasm.solver_update_number_of_elites(this.ptr, low0, high0);
+        wasm.solver_update_number_of_elites(this.ptr, value);
     }
     /**
     * @param {number} value
