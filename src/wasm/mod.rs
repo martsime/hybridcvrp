@@ -84,28 +84,28 @@ impl Solver {
         self.ctx = Some(ctx);
     }
 
-    pub fn update_time_limit(&mut self, value: u64) {
-        self.config.time_limit = value;
+    pub fn update_time_limit(&mut self, value: i32) {
+        self.config.time_limit = value as u64;
     }
 
-    pub fn update_min_population_size(&mut self, value: u64) {
-        self.config.min_population_size = value;
+    pub fn update_min_population_size(&mut self, value: i32) {
+        self.config.min_population_size = value as u64;
     }
 
-    pub fn update_initial_individuals(&mut self, value: u64) {
-        self.config.initial_individuals = value;
+    pub fn update_initial_individuals(&mut self, value: i32) {
+        self.config.initial_individuals = value as u64;
     }
 
-    pub fn update_generation_size(&mut self, value: u64) {
-        self.config.population_lambda = value;
+    pub fn update_generation_size(&mut self, value: i32) {
+        self.config.population_lambda = value as u64;
     }
 
-    pub fn update_local_search_granularity(&mut self, value: u64) {
-        self.config.local_search_granularity = value;
+    pub fn update_local_search_granularity(&mut self, value: i32) {
+        self.config.local_search_granularity = value as u64;
     }
 
-    pub fn update_number_of_elites(&mut self, value: u64) {
-        self.config.num_elites = value;
+    pub fn update_number_of_elites(&mut self, value: i32) {
+        self.config.num_elites = value as u64;
     }
 
     pub fn update_feasibility_proportion_target(&mut self, value: f64) {
