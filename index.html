@@ -18,7 +18,10 @@
     function gtag() { dataLayer.push(arguments); }
     gtag('js', new Date());
 
-    gtag('config', 'G-10E0V4Y9Q3');
+    gtag('config', 'G-10E0V4Y9Q3', {
+      cookie_domain: 'martsime.github.io',
+      cookie_flags: 'SameSite=None;Secure',
+    });
   </script>
 
   <script defer src='./build/bundle.js'></script>
