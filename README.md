@@ -1,3 +1,4 @@
+
 # HybridCVRP
 
 HybridCVRP is a metaheuristic solver for the Capacitated Vehicle Routing Problem (CVRP).
@@ -5,6 +6,8 @@ It contains an implementation of the Hybrid Genetic Search with Ruin-and-Recreat
 
 ## Demo
 A demo of the solver can be found at [https://martsime.github.io/hybridcvrp](https://martsime.github.io/hybridcvrp).
+
+![HybridCVRP](https://user-images.githubusercontent.com/14152372/131351266-38837f93-e117-4aec-b54b-bc69064057e1.gif)
 
 For the demo webpage, the solver is compiled to WebAssembly and run in the browser.
 More information about the demo can be found here: [https://github.com/martsime/hybridcvrp-web](https://github.com/martsime/hybridcvrp-web).
