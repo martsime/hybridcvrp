@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::config::Config;
 use crate::models::Problem;
@@ -15,7 +15,7 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn new(problem: Problem, config: Config, search_history: SearchHistory) -> Self {
+    pub fn new(problem: Problem, config: Config, start_time: Instant) -> Self {
         let random = if config.deterministic {
             log::info!("Deterministic with seed: {}", config.seed);
             Random::from_seed(config.seed)
@@ -26,7 +26,7 @@ impl Context {
             problem,
             config: RefCell::new(config),
             random,
-            search_history: RefCell::new(search_history),
+            search_history: RefCell::new(SearchHistory::new(start_time)),
         }
     }
 

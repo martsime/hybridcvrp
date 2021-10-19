@@ -11,15 +11,12 @@ use crate::solver::SolutionEvaluation;
 pub struct Individual {
     // Used as key in population
     pub number: u64,
-
     // Solution representation as a giant tour. The tour does not include the depot
     pub genotype: Vec<usize>,
     // Solution representation split into routes
     pub phenotype: Vec<Vec<usize>>,
-
     // Biased fitness
     pub fitness: FloatType,
-
     // Evaluation of the solution
     pub evaluation: SolutionEvaluation,
 }

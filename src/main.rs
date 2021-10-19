@@ -23,13 +23,10 @@ fn main() {
     let args = Args::parse();
     config.update_from_args(&args);
 
-    // Initialize search history
-    let search_history = SearchHistory::new(start_time);
-
     log::info!("Loading problem file: {}", config.instance_path);
     let problem = utils::parse_problem(&mut config);
 
-    let ctx = Context::new(problem, config, search_history);
+    let ctx = Context::new(problem, config, start_time);
     let metaheuristic = GeneticAlgorithm::new(&ctx);
     let mut solver = Solver::new(ctx, metaheuristic);
     solver.run();
