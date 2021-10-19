@@ -43,7 +43,6 @@ impl Move for TwoOptIntraReverse {
     }
 
     unsafe fn perform(&self, ls: &mut LocalSearch, u_rc: *mut LinkNode, v_rc: *mut LinkNode) {
-        log::debug!("TwoOptIntraReverse");
         let r1 = (*u_rc).route;
         let x_rc = (*u_rc).successor;
         let y_rc = (*v_rc).successor;
@@ -98,13 +97,10 @@ impl Move for TwoOptInterReverse {
     }
 
     unsafe fn perform(&self, ls: &mut LocalSearch, u_rc: *mut LinkNode, mut v_rc: *mut LinkNode) {
-        log::debug!("TwoOptInterReverse");
         let r1 = (*u_rc).route;
         let r2 = (*v_rc).route;
         let mut x_rc = (*u_rc).successor;
         let y_rc = (*v_rc).successor;
-        log::debug!("u: {}, route: {}", (*u_rc).number, *r1);
-        log::debug!("v: {}, route: {}", (*v_rc).number, *r2);
         if !(*v_rc).is_depot() {
             LinkNode::backward_reverse(v_rc, std::ptr::null_mut(), (*r1).end_depot);
         } else {
@@ -167,7 +163,6 @@ impl Move for TwoOptInter {
     }
 
     unsafe fn perform(&self, ls: &mut LocalSearch, u_rc: *mut LinkNode, v_rc: *mut LinkNode) {
-        log::debug!("TwoOptInter");
         let r1 = (*u_rc).route;
         let r2 = (*v_rc).route;
         let x_rc = (*u_rc).successor;

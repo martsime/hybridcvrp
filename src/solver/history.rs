@@ -87,7 +87,7 @@ impl SearchHistory {
             timestamp,
         };
 
-        println!("{}", new_best_message);
+        log::info!("{}", new_best_message);
 
         // Keep only json for the last found solution
         self.remove_previous_data();

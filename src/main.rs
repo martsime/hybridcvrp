@@ -3,7 +3,7 @@ use instant::Instant;
 use hybridcvrp::cli::Args;
 use hybridcvrp::config::Config;
 use hybridcvrp::solver::genetic::GeneticAlgorithm;
-use hybridcvrp::solver::{Context, SearchHistory, Solver};
+use hybridcvrp::solver::{Context, Solver};
 use hybridcvrp::utils;
 
 fn main() {

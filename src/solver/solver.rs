@@ -26,7 +26,7 @@ where
         while !self.metaheuristic.terminated() {
             self.metaheuristic.iterate(&self.ctx);
         }
-        println!("Time: {:?}, Completed", self.ctx.elapsed());
+        log::info!("Time: {:?}, Completed", self.ctx.elapsed());
         utils::write_solution_file(&self.ctx);
     }
 }

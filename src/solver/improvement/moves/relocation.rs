@@ -57,7 +57,6 @@ impl Move for RelocateSingle {
     }
 
     unsafe fn perform(&self, ls: &mut LocalSearch, u_rc: *mut LinkNode, v_rc: *mut LinkNode) {
-        log::debug!("RelocateSingle");
         let r1 = (*u_rc).route;
         let r2 = (*v_rc).route;
 
@@ -144,7 +143,6 @@ impl Move for RelocateDouble {
     }
 
     unsafe fn perform(&self, ls: &mut LocalSearch, u_rc: *mut LinkNode, v_rc: *mut LinkNode) {
-        log::debug!("RelocateDouble");
         let r1 = (*u_rc).route;
         let r2 = (*v_rc).route;
 
@@ -232,7 +230,6 @@ impl Move for RelocateDoubleReverse {
     }
 
     unsafe fn perform(&self, ls: &mut LocalSearch, u_rc: *mut LinkNode, v_rc: *mut LinkNode) {
-        log::debug!("RelocateDoubleReverse");
         let r1 = (*u_rc).route;
         let r2 = (*v_rc).route;
 

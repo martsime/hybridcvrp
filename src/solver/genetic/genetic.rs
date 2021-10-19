@@ -239,7 +239,7 @@ impl GeneticAlgorithm {
             self.population.history_fraction()
         ));
         log_text.push_str(&format!("Pen {:.2}", ctx.config.borrow().penalty_capacity));
-        log::info!("{}", log_text);
+        log::debug!("{}", log_text);
     }
 
     fn update_best(&mut self, ctx: &Context) {

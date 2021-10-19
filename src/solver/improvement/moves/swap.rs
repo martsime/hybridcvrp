@@ -63,7 +63,6 @@ impl Move for SwapOneWithOne {
     }
 
     unsafe fn perform(&self, ls: &mut LocalSearch, u_rc: *mut LinkNode, v_rc: *mut LinkNode) {
-        log::debug!("SwapOneWithOne");
         let r1 = (*u_rc).route;
         let r2 = (*v_rc).route;
 
@@ -161,7 +160,6 @@ impl Move for SwapTwoWithOne {
     }
 
     unsafe fn perform(&self, ls: &mut LocalSearch, u_rc: *mut LinkNode, v_rc: *mut LinkNode) {
-        log::debug!("SwapTwoWithOne");
         let r1 = (*u_rc).route;
         let r2 = (*v_rc).route;
 
@@ -270,7 +268,6 @@ impl Move for SwapTwoWithTwo {
     }
 
     unsafe fn perform(&self, ls: &mut LocalSearch, u_rc: *mut LinkNode, v_rc: *mut LinkNode) {
-        log::debug!("SwapTwoWithTwo");
         let r1 = (*u_rc).route;
         let r2 = (*v_rc).route;
 
