@@ -1,5 +1,4 @@
 use crate::solver::Context;
-use crate::utils;
 
 pub trait Metaheuristic {
     fn iterate(&mut self, ctx: &Context);
@@ -27,6 +26,5 @@ where
             self.metaheuristic.iterate(&self.ctx);
         }
         log::info!("Time: {:?}, Completed", self.ctx.elapsed());
-        utils::write_solution_file(&self.ctx);
     }
 }

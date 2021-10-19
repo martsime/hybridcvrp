@@ -30,4 +30,5 @@ fn main() {
     let metaheuristic = GeneticAlgorithm::new(&ctx);
     let mut solver = Solver::new(ctx, metaheuristic);
     solver.run();
+    utils::write_solution_file(&solver.ctx);
 }
