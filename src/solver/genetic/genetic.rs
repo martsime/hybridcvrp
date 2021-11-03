@@ -272,6 +272,7 @@ impl GeneticAlgorithm {
         self.next_log_interval = self.iterations;
         self.current_best_solution_cost = f64::INFINITY;
         self.best_iteration = self.iterations;
+        self.num_initialized = 0;
         self.state = State::Created;
     }
 }
