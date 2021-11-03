@@ -11,10 +11,9 @@ use std::collections::HashSet;
 
 use ahash::RandomState;
 
-use crate::constants::EPSILON;
-use crate::models::{FloatType, IntType};
 use crate::solver::genetic::Individual;
 use crate::solver::Context;
+use crate::utils::FloatCompare;
 
 #[derive(Debug, Clone)]
 pub struct RuinRecreateSolution {
@@ -22,7 +21,7 @@ pub struct RuinRecreateSolution {
     pub unassigned: Vec<usize>,
     pub ruined_routes: HashSet<usize, RandomState>,
     pub locations: Vec<NodeLocation>,
-    pub cost: FloatType,
+    pub cost: f64,
 }
 
 impl RuinRecreateSolution {
@@ -39,7 +38,7 @@ impl RuinRecreateSolution {
             unassigned,
             ruined_routes: HashSet::with_hasher(RandomState::new()),
             locations,
-            cost: FloatType::INFINITY,
+            cost: f64::INFINITY,
         }
     }
 
@@ -77,8 +76,12 @@ impl RuinRecreateSolution {
     }
 
     pub fn is_feasible(&self) -> bool {
-        let total_overload: IntType = self.routes.iter().map(|route| 0.max(route.overload)).sum();
-        total_overload == 0
+        let total_overload: f64 = self
+            .routes
+            .iter()
+            .map(|route| 0f64.max(route.overload))
+            .sum();
+        total_overload.approx_eq(0.0)
     }
 
     pub fn evaluate<'a, I>(&mut self, ctx: &Context, updated_routes: I)
@@ -89,9 +92,7 @@ impl RuinRecreateSolution {
         self.cost = self
             .routes
             .iter()
-            .map(|route| {
-                route.distance as FloatType + 0.max(route.overload) as FloatType * penalty_capacity
-            })
+            .map(|route| route.distance + 0f64.max(route.overload) * penalty_capacity)
             .sum();
 
         for &route_index in updated_routes {
@@ -107,9 +108,7 @@ impl RuinRecreateSolution {
         self.cost = self
             .routes
             .iter()
-            .map(|route| {
-                route.distance as FloatType + 0.max(route.overload) as FloatType * penalty_capacity
-            })
+            .map(|route| route.distance + 0f64.max(route.overload) * penalty_capacity)
             .sum();
     }
 }
@@ -123,10 +122,10 @@ pub struct RuinRecreate {
     pub best_solution: Option<RuinRecreateSolution>,
     pub total_iterations: usize,
     pub iteration: usize,
-    pub min_temp: FloatType,
-    pub max_temp: FloatType,
-    pub cooling_factor: FloatType,
-    pub temp: FloatType,
+    pub min_temp: f64,
+    pub max_temp: f64,
+    pub cooling_factor: f64,
+    pub temp: f64,
     pub update_penalty: bool,
 }
 
@@ -153,9 +152,8 @@ impl RuinRecreate {
 
     pub fn setup_elite_education(&mut self, ctx: &Context) {
         let config = ctx.config.borrow();
-        self.total_iterations = (config.elite_education_gamma
-            * ctx.problem.num_customers() as FloatType)
-            .round() as usize;
+        self.total_iterations =
+            (config.elite_education_gamma * ctx.problem.num_customers() as f64).round() as usize;
         self.min_temp = config.elite_education_final_temp;
         self.max_temp = config.elite_education_start_temp;
         self.update_penalty = true;
@@ -164,7 +162,7 @@ impl RuinRecreate {
     pub fn setup_mutation(&mut self, ctx: &Context) {
         let config = ctx.config.borrow();
         self.total_iterations =
-            (config.rr_gamma * ctx.problem.num_customers() as FloatType).round() as usize;
+            (config.rr_gamma * ctx.problem.num_customers() as f64).round() as usize;
         self.min_temp = config.rr_final_temp;
         self.max_temp = config.rr_start_temp;
         self.update_penalty = false;
@@ -194,7 +192,10 @@ impl RuinRecreate {
         self.best_solution = Some(self.current_solution.clone());
         let mut search_history = self.ctx.search_history.borrow_mut();
         if self.current_solution.is_feasible()
-            && self.current_solution.cost < search_history.best_cost
+            && self
+                .current_solution
+                .cost
+                .approx_lt(search_history.best_cost)
         {
             let mut best_individual = Individual::new_random(self.ctx, 0);
             self.update_individual(&self.current_solution, &mut best_individual);
@@ -205,10 +206,10 @@ impl RuinRecreate {
     }
 
     fn calculate_cooling_factor(&self) -> f64 {
-        if self.max_temp < EPSILON {
+        if self.max_temp.approx_eq(0.0) {
             1.0
         } else {
-            if self.min_temp < EPSILON {
+            if self.min_temp.approx_eq(0.0) {
                 ((0.000001 / self.max_temp) * 1.0).powf(1.0f64 / self.total_iterations as f64)
             } else {
                 ((self.min_temp / self.max_temp) * 1.0).powf(1.0f64 / self.total_iterations as f64)
@@ -245,11 +246,13 @@ impl RuinRecreate {
             let cost_before = self.current_solution.cost;
             self.ruin.run(self.ctx, &mut self.current_solution);
             self.recreate.run(self.ctx, &mut self.current_solution);
-            if self.current_solution.cost + EPSILON
-                < cost_before - self.temp * self.ctx.random.real().ln()
+            if self
+                .current_solution
+                .cost
+                .approx_lt(cost_before - self.temp * self.ctx.random.real().ln())
             {
                 if let Some(best_solution) = self.best_solution.as_ref() {
-                    if self.current_solution.cost + EPSILON < best_solution.cost {
+                    if self.current_solution.cost.approx_lt(best_solution.cost) {
                         self.update_best();
                     }
                 } else {
@@ -280,10 +283,10 @@ impl RuinRecreate {
         }
     }
 
-    pub fn best_cost(&self) -> FloatType {
+    pub fn best_cost(&self) -> f64 {
         match self.best_solution.as_ref() {
             Some(best_solution) => best_solution.cost,
-            None => FloatType::INFINITY,
+            None => f64::INFINITY,
         }
     }
 

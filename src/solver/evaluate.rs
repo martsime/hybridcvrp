@@ -1,39 +1,36 @@
-use std::cmp::max;
-
-use crate::models::{FloatType, IntType};
 use crate::solver::Context;
+use crate::utils::FloatCompare;
 
 #[inline]
-pub fn route_cost(distance: IntType, overload: IntType, penalty: FloatType) -> FloatType {
-    distance as FloatType + penalty * max(0, overload) as FloatType
+pub fn route_cost(distance: f64, overload: f64, penalty: f64) -> f64 {
+    distance + penalty * 0f64.max(overload)
 }
 
 #[derive(Debug, Clone)]
 pub struct RouteEvaluation {
-    pub distance: IntType,
-    pub overload: IntType,
-    pub penalized_cost: FloatType,
+    pub distance: f64,
+    pub overload: f64,
+    pub penalized_cost: f64,
 }
 
 impl RouteEvaluation {
     pub fn is_feasible(&self) -> bool {
-        self.overload <= 0
+        self.overload.approx_lte(0.0)
     }
 
     pub fn empty() -> Self {
         Self {
-            distance: IntType::MAX,
-            overload: IntType::MAX,
-            penalized_cost: FloatType::INFINITY,
+            distance: f64::MAX,
+            overload: f64::MAX,
+            penalized_cost: f64::INFINITY,
         }
     }
-    
 }
 
 #[derive(Debug, Clone)]
 pub struct SolutionEvaluation {
     // Penalized cost of the solution
-    pub penalized_cost: FloatType,
+    pub penalized_cost: f64,
     pub feasible: bool,
 
     // Evaluation of routes
@@ -48,7 +45,7 @@ pub struct SolutionEvaluation {
 impl SolutionEvaluation {
     pub fn new() -> Self {
         Self {
-            penalized_cost: FloatType::INFINITY,
+            penalized_cost: f64::INFINITY,
             feasible: false,
             routes: Vec::new(),
             predecessors: Vec::new(),
@@ -76,7 +73,7 @@ impl SolutionEvaluation {
         let penalty_capacity = ctx.config.borrow().penalty_capacity;
 
         // Total cost of the solution
-        let mut total_penalized_cost: FloatType = 0.0;
+        let mut total_penalized_cost: f64 = 0.0;
 
         // If the solution is feasible
         let mut feasible = true;
@@ -85,13 +82,13 @@ impl SolutionEvaluation {
         for (route_index, route) in solution.iter().enumerate() {
             // Set the last_node to the depot and set the load to 0
             let mut last_node = depot_node;
-            let mut load = 0;
-            let mut route_distance = 0;
+            let mut load = 0.0;
+            let mut route_distance = 0.0;
 
             // Iterate over the nodes on the route. Exclusive depot
             for &node in route.iter() {
                 // Update distance
-                route_distance += ctx.problem.distance.get(last_node, node);
+                route_distance += ctx.matrix_provider.distance.get(last_node, node);
 
                 // Update load on route
                 load += ctx.problem.nodes[node].demand;
@@ -107,7 +104,7 @@ impl SolutionEvaluation {
             self.successors[last_node] = depot_node;
 
             // Add the distance from the last node in a route and to the depot
-            route_distance += ctx.problem.distance.get(last_node, depot_node);
+            route_distance += ctx.matrix_provider.distance.get(last_node, depot_node);
 
             // Calculate the overload
             let overload = load - capacity;
@@ -121,7 +118,7 @@ impl SolutionEvaluation {
                 route_cost(route_distance, overload, penalty_capacity);
             total_penalized_cost += self.routes[route_index].penalized_cost;
 
-            if overload > 0 {
+            if overload.approx_gt(0.0) {
                 // Update feasibility if the capacity is violated
                 feasible = false;
             }

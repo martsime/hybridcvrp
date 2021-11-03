@@ -25,6 +25,7 @@ fn main() {
 
     log::info!("Loading problem file: {}", config.instance_path);
     let problem = utils::parse_problem(&mut config);
+    log::info!("Problem load complete");
 
     let ctx = Context::new(problem, config, start_time);
     let metaheuristic = GeneticAlgorithm::new(&ctx);

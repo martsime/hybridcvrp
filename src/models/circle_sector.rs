@@ -1,13 +1,11 @@
-use crate::models::IntType;
-
 // Used to represent the polar angles as integers
-const MAX_ANGLE: IntType = 65536;
+const MAX_ANGLE: i32 = 65536;
 
 /// Represents the sector with start and end polar angles in a circle
 #[derive(Clone, Debug)]
 pub struct CircleSector {
-    pub start: IntType,
-    pub end: IntType,
+    pub start: i32,
+    pub end: i32,
 }
 
 impl CircleSector {
@@ -20,12 +18,12 @@ impl CircleSector {
         self.end = 0;
     }
 
-    pub fn from_angle(&mut self, angle: IntType) {
+    pub fn from_angle(&mut self, angle: i32) {
         self.start = angle;
         self.end = angle;
     }
 
-    pub fn extend(&mut self, angle: IntType) {
+    pub fn extend(&mut self, angle: i32) {
         if self.start == 0 && self.end == 0 {
             self.from_angle(angle);
         } else {
@@ -41,7 +39,7 @@ impl CircleSector {
         }
     }
 
-    pub fn is_enclosed(&self, angle: IntType) -> bool {
+    pub fn is_enclosed(&self, angle: i32) -> bool {
         (angle - self.start).rem_euclid(MAX_ANGLE) <= (self.end - self.start).rem_euclid(MAX_ANGLE)
     }
 

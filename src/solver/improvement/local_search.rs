@@ -4,24 +4,22 @@ use std::ptr;
 
 use ahash::RandomState;
 
-use crate::constants::EPSILON;
-use crate::models::{FloatType, IntType, Matrix};
+use crate::models::Matrix;
 use crate::solver::evaluate::route_cost;
 use crate::solver::genetic::Individual;
 use crate::solver::improvement::moves::{Moves, SwapStar};
 use crate::solver::improvement::{InsertLocation, LinkNode, LinkRoute, ThreeBestInserts};
 use crate::solver::Context;
+use crate::utils::FloatCompare;
 
 pub struct LocalSearch {
     pub ctx: &'static Context,
 
     pub routes: Vec<LinkRoute>,
     pub customers: Vec<usize>,
-    pub correlations: Vec<usize>,
-    pub granularities: Vec<usize>,
-    pub num_correlations: usize,
+    pub granularity: usize,
 
-    pub move_count: IntType,
+    pub move_count: i32,
     pub moves: Moves,
 
     // Store the three best insert locations for each node and route. Used by swap start move.
@@ -36,11 +34,11 @@ pub struct LocalSearch {
     pub empty_routes: HashSet<usize, RandomState>,
 
     // Penalty for capacity during the search
-    pub penalty_capacity: FloatType,
+    pub penalty_capacity: f64,
 }
 
 impl LocalSearch {
-    pub fn new(ctx: &Context, penalty_multiplier: FloatType) -> Self {
+    pub fn new(ctx: &Context, penalty_multiplier: f64) -> Self {
         unsafe {
             // Create all the nodes
             let nodes: Vec<LinkNode> = ctx
@@ -80,9 +78,7 @@ impl LocalSearch {
                     num_vehicles,
                     ctx.problem.dim(),
                 ),
-                correlations: ctx.problem.correlations.clone(),
-                granularities: ctx.problem.granularities.clone(),
-                num_correlations: ctx.problem.num_correlations,
+                granularity: ctx.config.borrow().local_search_granularity as usize,
                 routes: routes,
                 move_count: 0,
                 empty_routes: HashSet::with_capacity_and_hasher(
@@ -96,7 +92,7 @@ impl LocalSearch {
         }
     }
 
-    pub fn update_penalty(&mut self, penalty_multiplier: FloatType) {
+    pub fn update_penalty(&mut self, penalty_multiplier: f64) {
         self.penalty_capacity = self.ctx.config.borrow().penalty_capacity * penalty_multiplier;
     }
 
@@ -136,12 +132,7 @@ impl LocalSearch {
         }
     }
 
-    pub fn run(
-        &mut self,
-        ctx: &Context,
-        individual: &mut Individual,
-        penalty_multiplier: FloatType,
-    ) {
+    pub fn run(&mut self, ctx: &Context, individual: &mut Individual, penalty_multiplier: f64) {
         unsafe {
             self.ctx = &*(ctx as *const Context);
             self.reset();
@@ -163,15 +154,17 @@ impl LocalSearch {
             let customers = &*{ &self.customers as *const Vec<usize> };
             for u_index in customers {
                 // Get all correlated customers in random order
-                let start_index = self.num_correlations * *u_index;
-                let end_index = start_index + self.granularities[*u_index];
-
-                let cor = &mut *{
-                    self.correlations.get_unchecked_mut(start_index..end_index) as *mut [usize]
-                };
+                let mut cor: Vec<usize> = self
+                    .ctx
+                    .matrix_provider
+                    .correlation
+                    .top_slice(*u_index, self.granularity)
+                    .iter()
+                    .copied()
+                    .collect();
 
                 if self.ctx.random.range_usize(0, cor.len()) == 0 {
-                    self.ctx.random.shuffle(cor);
+                    self.ctx.random.shuffle(cor.as_mut_slice());
                 }
 
                 let u = &mut self.nodes[*u_index] as *mut LinkNode;
@@ -193,7 +186,7 @@ impl LocalSearch {
                         // First, all the moves for the pair of customers are attempted
                         for m in moves.neighbor.iter() {
                             let delta = m.delta(&self, u, v);
-                            if delta + EPSILON < 0.0 {
+                            if delta.approx_lt(0.0) {
                                 self.move_count += 1;
                                 m.perform(self, u, v);
                                 route_u = (*u).route;
@@ -208,7 +201,7 @@ impl LocalSearch {
                         if (*v_pred).is_depot() {
                             for m in moves.depot.iter() {
                                 let delta = m.delta(&self, u, v);
-                                if delta + EPSILON < 0.0 {
+                                if delta.approx_lt(0.0) {
                                     self.move_count += 1;
                                     m.perform(self, u, v);
                                     route_u = (*u).route;
@@ -231,7 +224,7 @@ impl LocalSearch {
                     let v = (*route_v).start_depot;
                     for m in moves.empty_route.iter() {
                         let delta = m.delta(&self, u, v);
-                        if delta + EPSILON < 0.0 {
+                        if delta.approx_lt(0.0) {
                             self.move_count += 1;
                             m.perform(self, u, v);
                             improvement = true;
@@ -301,10 +294,11 @@ impl LocalSearch {
     // Used to update the route after a move is performed
     pub fn update_route(&mut self, route_ptr: *mut LinkRoute) {
         let problem = &self.ctx.problem;
+        let distance_matrix = &self.ctx.matrix_provider.distance;
         unsafe {
             // Variables to be calculated for the route
-            let mut distance = 0;
-            let mut load = 0;
+            let mut distance = 0.0;
+            let mut load = 0.0;
             let mut num_customers = 0;
 
             // Start with the depot as the first node
@@ -324,9 +318,7 @@ impl LocalSearch {
             // Loop through all nodes in route
             while !node_ptr.is_null() {
                 // Add distance and load for the node
-                distance += problem
-                    .distance
-                    .get((*prev_node_ptr).number, (*node_ptr).number);
+                distance += distance_matrix.get((*prev_node_ptr).number, (*node_ptr).number);
                 load += problem.nodes[(*node_ptr).number].demand;
 
                 // Update circle sector for customers
@@ -376,7 +368,7 @@ impl LocalSearch {
 
     /// Used to preprocess the three best insertion costs for all nodes in a pair of routes
     pub unsafe fn preprocess_insertions(&mut self, r1_ptr: *mut LinkRoute, r2_ptr: *mut LinkRoute) {
-        let problem = &self.ctx.problem;
+        let distance_matrix = &self.ctx.matrix_provider.distance;
         let r1 = &*r1_ptr;
         let r2 = &*r2_ptr;
 
@@ -391,9 +383,9 @@ impl LocalSearch {
             let x = &*u.successor;
 
             // Calculate and set change in objective when removing u
-            let delta_removal = problem.distance.get(u_prev.number, x.number)
-                - problem.distance.get(u_prev.number, u.number)
-                - problem.distance.get(u.number, x.number);
+            let delta_removal = distance_matrix.get(u_prev.number, x.number)
+                - distance_matrix.get(u_prev.number, u.number)
+                - distance_matrix.get(u.number, x.number);
             (*u_ptr).delta_removal = delta_removal;
 
             // Only recalculate insertion cost into route 2 if the route has changed since last calculation
@@ -408,13 +400,13 @@ impl LocalSearch {
                 let mut v_ptr = (*r2.start_depot).successor;
 
                 // Check cost of inserting node u between the start depot and the first node in route 2
-                let cost = problem.distance.get(0, u.number)
-                    + problem.distance.get(u.number, (*v_ptr).number)
-                    - problem.distance.get(0, (*v_ptr).number);
+                let cost = distance_matrix.get(0, u.number)
+                    + distance_matrix.get(u.number, (*v_ptr).number)
+                    - distance_matrix.get(0, (*v_ptr).number);
                 self.best_inserts
                     .get_mut(r2.index, u.number)
                     .add(InsertLocation {
-                        cost: cost as FloatType,
+                        cost,
                         node: r2.start_depot,
                     });
 
@@ -422,10 +414,10 @@ impl LocalSearch {
                 while !(*v_ptr).is_depot() {
                     let v = &*v_ptr;
                     let y = &*v.successor;
-                    let delta_insert = problem.distance.get(v.number, u.number)
-                        + problem.distance.get(u.number, y.number)
-                        - problem.distance.get(v.number, y.number);
-                    let cost = delta_insert as FloatType;
+                    let delta_insert = distance_matrix.get(v.number, u.number)
+                        + distance_matrix.get(u.number, y.number)
+                        - distance_matrix.get(v.number, y.number);
+                    let cost = delta_insert;
 
                     self.best_inserts
                         .get_mut(r2.index, u.number)
@@ -444,12 +436,12 @@ impl LocalSearch {
         &mut self,
         u_ptr: *mut LinkNode,
         v_ptr: *mut LinkNode,
-    ) -> (*mut LinkNode, FloatType) {
+    ) -> (*mut LinkNode, f64) {
         // Derefence pointers and setup local variables
         let u = &*u_ptr;
         let v = &*v_ptr;
         let r2 = &(*v.route);
-        let problem = &self.ctx.problem;
+        let distance_matrix = &self.ctx.matrix_provider.distance;
 
         // Start with the best insertion into route v.
         let best_insertion = self.best_inserts.get_mut(r2.index, u.number);
@@ -477,12 +469,12 @@ impl LocalSearch {
 
         // Calculate the cost of inserting u in place of v, as
         // the best position already found is into route 2 while v is still present
-        let delta_cost = (problem.distance.get(v_prev.number, u.number)
-            + problem.distance.get(u.number, y.number)
-            - problem.distance.get(v_prev.number, y.number)) as FloatType;
+        let delta_cost = distance_matrix.get(v_prev.number, u.number)
+            + distance_matrix.get(u.number, y.number)
+            - distance_matrix.get(v_prev.number, y.number);
 
         // Update best insertion if it's cheaper to insert in place of v
-        if !found || delta_cost < best_cost {
+        if !found || delta_cost.approx_lt(best_cost) {
             best_node = v.predecessor;
             best_cost = delta_cost;
         }

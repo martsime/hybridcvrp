@@ -22,6 +22,7 @@ env_logger = "0.8.3"
 fastrand = "1.4.0"
 float-cmp = "0.8.0"
 lazy_static = "1.4.0"
+lazysort = "0.2.1"
 log = "0.4.14"
 serde = { version = "1.0.119", features = ["derive", "rc"] }
 serde_yaml = "0.8.15"

@@ -1,4 +1,3 @@
-use crate::models::IntType;
 use crate::solver::Context;
 
 /// Indices into the `Route` for a customer.
@@ -41,18 +40,18 @@ pub struct Route {
     pub nodes: Vec<usize>,
 
     // Distance of the route
-    pub distance: IntType,
+    pub distance: f64,
 
     // Total overload on the route
-    pub overload: IntType,
+    pub overload: f64,
 }
 
 impl Route {
     pub fn empty() -> Self {
         Self {
             nodes: Vec::new(),
-            distance: 0,
-            overload: 0,
+            distance: f64::default(),
+            overload: f64::default(),
         }
     }
     pub fn remove(&mut self, index: usize, ctx: &Context) -> usize {
@@ -64,16 +63,22 @@ impl Route {
         };
 
         // Update distance and overload
-        self.distance += -ctx.problem.distance.get(prev_node, self.nodes[index])
-            - ctx.problem.distance.get(self.nodes[index], next_node)
-            + ctx.problem.distance.get(prev_node, next_node);
+        self.distance += -ctx
+            .matrix_provider
+            .distance
+            .get(prev_node, self.nodes[index])
+            - ctx
+                .matrix_provider
+                .distance
+                .get(self.nodes[index], next_node)
+            + ctx.matrix_provider.distance.get(prev_node, next_node);
 
         self.overload -= ctx.problem.nodes[self.nodes[index]].demand;
 
         self.nodes.remove(index)
     }
 
-    pub fn delta_distance(&self, index: usize, node: usize, ctx: &Context) -> IntType {
+    pub fn delta_distance(&self, index: usize, node: usize, ctx: &Context) -> f64 {
         let prev_node = if index == 0 { 0 } else { self.nodes[index - 1] };
         let next_node = if index == self.nodes.len() {
             0
@@ -82,9 +87,9 @@ impl Route {
         };
 
         // Update distance and overload
-        let delta = -ctx.problem.distance.get(prev_node, next_node)
-            + ctx.problem.distance.get(prev_node, node)
-            + ctx.problem.distance.get(node, next_node);
+        let delta = -ctx.matrix_provider.distance.get(prev_node, next_node)
+            + ctx.matrix_provider.distance.get(prev_node, node)
+            + ctx.matrix_provider.distance.get(node, next_node);
         delta
     }
 

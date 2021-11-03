@@ -1,26 +1,24 @@
 use std::ptr;
 
-use crate::models::FloatType;
-use crate::models::IntType;
 use crate::solver::improvement::LinkNode;
 
 /// Used to store the cost of inserting directly after `node`
 #[derive(Debug, Clone, Copy)]
 pub struct InsertLocation {
-    pub cost: FloatType,
+    pub cost: f64,
     pub node: *mut LinkNode,
 }
 
 impl InsertLocation {
     pub fn new() -> Self {
         Self {
-            cost: FloatType::INFINITY,
+            cost: f64::INFINITY,
             node: ptr::null_mut(),
         }
     }
 
     pub fn reset(&mut self) {
-        self.cost = FloatType::INFINITY;
+        self.cost = f64::INFINITY;
         self.node = ptr::null_mut();
     }
 }
@@ -29,7 +27,7 @@ impl InsertLocation {
 #[derive(Debug, Clone, Copy)]
 pub struct ThreeBestInserts {
     pub locations: [InsertLocation; 3],
-    pub last_calculated: IntType,
+    pub last_calculated: i32,
 }
 
 impl ThreeBestInserts {

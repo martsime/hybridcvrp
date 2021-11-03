@@ -1,4 +1,3 @@
-use crate::models::FloatType;
 use crate::solver::evaluate::route_cost;
 use crate::solver::improvement::{LinkNode, LocalSearch, Move};
 
@@ -8,13 +7,9 @@ impl Move for RelocateSingle {
     fn move_name(&self) -> &'static str {
         "RelocateSingle"
     }
-    unsafe fn delta(
-        &self,
-        ls: &LocalSearch,
-        u_rc: *mut LinkNode,
-        v_rc: *mut LinkNode,
-    ) -> FloatType {
-        let problem = &ls.ctx.problem;
+    unsafe fn delta(&self, ls: &LocalSearch, u_rc: *mut LinkNode, v_rc: *mut LinkNode) -> f64 {
+        let distance_matrix = &ls.ctx.matrix_provider.distance;
+        let nodes = &ls.ctx.problem.nodes;
 
         let u = &*u_rc;
         let u_pred = &*u.predecessor;
@@ -31,19 +26,19 @@ impl Move for RelocateSingle {
         }
 
         let distance_one = r1.distance
-            - problem.distance.get(u_pred.number, u.number)
-            - problem.distance.get(u.number, x.number)
-            + problem.distance.get(u_pred.number, x.number);
+            - distance_matrix.get(u_pred.number, u.number)
+            - distance_matrix.get(u.number, x.number)
+            + distance_matrix.get(u_pred.number, x.number);
 
-        let distance_two = r2.distance - problem.distance.get(v.number, y.number)
-            + problem.distance.get(v.number, u.number)
-            + problem.distance.get(u.number, y.number);
+        let distance_two = r2.distance - distance_matrix.get(v.number, y.number)
+            + distance_matrix.get(v.number, u.number)
+            + distance_matrix.get(u.number, y.number);
 
         let mut overload_one = r1.overload;
         let mut overload_two = r2.overload;
 
         if r1.index != r2.index {
-            let u_demand = problem.nodes[u.number].demand;
+            let u_demand = nodes[u.number].demand;
             overload_one += -u_demand;
             overload_two += u_demand;
         }
@@ -85,13 +80,10 @@ impl Move for RelocateDouble {
     fn move_name(&self) -> &'static str {
         "RelocateDouble"
     }
-    unsafe fn delta(
-        &self,
-        ls: &LocalSearch,
-        u_rc: *mut LinkNode,
-        v_rc: *mut LinkNode,
-    ) -> FloatType {
-        let problem = &ls.ctx.problem;
+    unsafe fn delta(&self, ls: &LocalSearch, u_rc: *mut LinkNode, v_rc: *mut LinkNode) -> f64 {
+        let distance_matrix = &ls.ctx.matrix_provider.distance;
+        let nodes = &ls.ctx.problem.nodes;
+
         let u = &*u_rc;
         let u_pred = &*u.predecessor;
         let x = &*u.successor;
@@ -114,22 +106,22 @@ impl Move for RelocateDouble {
         }
 
         let distance_one = r1.distance
-            - problem.distance.get(u_pred.number, u.number)
-            - problem.distance.get(u.number, x.number)
-            - problem.distance.get(x.number, x_next.number)
-            + problem.distance.get(u_pred.number, x_next.number);
+            - distance_matrix.get(u_pred.number, u.number)
+            - distance_matrix.get(u.number, x.number)
+            - distance_matrix.get(x.number, x_next.number)
+            + distance_matrix.get(u_pred.number, x_next.number);
 
-        let distance_two = r2.distance - problem.distance.get(v.number, y.number)
-            + problem.distance.get(v.number, u.number)
-            + problem.distance.get(u.number, x.number)
-            + problem.distance.get(x.number, y.number);
+        let distance_two = r2.distance - distance_matrix.get(v.number, y.number)
+            + distance_matrix.get(v.number, u.number)
+            + distance_matrix.get(u.number, x.number)
+            + distance_matrix.get(x.number, y.number);
 
         let mut overload_one = r1.overload;
         let mut overload_two = r2.overload;
 
         if r1.index != r2.index {
-            let u_demand = problem.nodes[u.number].demand;
-            let x_demand = problem.nodes[x.number].demand;
+            let u_demand = nodes[u.number].demand;
+            let x_demand = nodes[x.number].demand;
             overload_one += -u_demand - x_demand;
             overload_two += u_demand + x_demand;
         }
@@ -172,13 +164,10 @@ impl Move for RelocateDoubleReverse {
     fn move_name(&self) -> &'static str {
         "RelocateDoubleReverse"
     }
-    unsafe fn delta(
-        &self,
-        ls: &LocalSearch,
-        u_rc: *mut LinkNode,
-        v_rc: *mut LinkNode,
-    ) -> FloatType {
-        let problem = &ls.ctx.problem;
+    unsafe fn delta(&self, ls: &LocalSearch, u_rc: *mut LinkNode, v_rc: *mut LinkNode) -> f64 {
+        let distance_matrix = &ls.ctx.matrix_provider.distance;
+        let nodes = &ls.ctx.problem.nodes;
+
         let u = &*u_rc;
         let u_prev = &*u.predecessor;
         let x = &*u.successor;
@@ -201,22 +190,22 @@ impl Move for RelocateDoubleReverse {
         }
 
         let distance_one = r1.distance
-            - problem.distance.get(u_prev.number, u.number)
-            - problem.distance.get(u.number, x.number)
-            - problem.distance.get(x.number, x_next.number)
-            + problem.distance.get(u_prev.number, x_next.number);
+            - distance_matrix.get(u_prev.number, u.number)
+            - distance_matrix.get(u.number, x.number)
+            - distance_matrix.get(x.number, x_next.number)
+            + distance_matrix.get(u_prev.number, x_next.number);
 
-        let distance_two = r2.distance - problem.distance.get(v.number, y.number)
-            + problem.distance.get(v.number, x.number)
-            + problem.distance.get(x.number, u.number)
-            + problem.distance.get(u.number, y.number);
+        let distance_two = r2.distance - distance_matrix.get(v.number, y.number)
+            + distance_matrix.get(v.number, x.number)
+            + distance_matrix.get(x.number, u.number)
+            + distance_matrix.get(u.number, y.number);
 
         let mut overload_one = r1.overload;
         let mut overload_two = r2.overload;
 
         if r1.index != r2.index {
-            let u_demand = problem.nodes[u.number].demand;
-            let x_demand = problem.nodes[x.number].demand;
+            let u_demand = nodes[u.number].demand;
+            let x_demand = nodes[x.number].demand;
             overload_one += -u_demand - x_demand;
             overload_two += u_demand + x_demand;
         }

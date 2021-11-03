@@ -3,7 +3,6 @@ use std::collections::HashMap;
 
 use ahash::RandomState;
 
-use crate::models::FloatType;
 use crate::solver::genetic::Individual;
 use crate::solver::Context;
 
@@ -112,7 +111,7 @@ impl SubPopulation {
     }
 
     /// Calculates the average diversity in the population
-    pub fn get_diversity(&self, ctx: &Context) -> FloatType {
+    pub fn get_diversity(&self, ctx: &Context) -> f64 {
         // Only include the min_population_size best individuals
         let size = min(
             self.size(),
@@ -125,13 +124,13 @@ impl SubPopulation {
         }
 
         if size > 0 {
-            total / size as FloatType
+            total / size as f64
         } else {
-            -1.0 as FloatType
+            -1.0 as f64
         }
     }
 
-    pub fn get_average_cost(&self, ctx: &Context) -> FloatType {
+    pub fn get_average_cost(&self, ctx: &Context) -> f64 {
         // Only include the min_population_size best individuals
         let size = min(
             self.size(),
@@ -144,9 +143,9 @@ impl SubPopulation {
         }
 
         if size > 0 {
-            total / size as FloatType
+            total / size as f64
         } else {
-            -1.0 as FloatType
+            -1.0 as f64
         }
     }
 
@@ -158,7 +157,7 @@ impl SubPopulation {
         }
     }
 
-    pub fn get_best_cost(&self) -> FloatType {
+    pub fn get_best_cost(&self) -> f64 {
         if let Some(best) = self.get_best() {
             best.penalized_cost()
         } else {
@@ -264,7 +263,7 @@ impl SubPopulation {
         let num_closest = ctx.config.borrow().num_diversity_closest as usize;
 
         // Vec used to sort the individuals after diversity in descending order
-        let mut diversity_sorted: Vec<(FloatType, usize)> = self
+        let mut diversity_sorted: Vec<(f64, usize)> = self
             .population
             .iter()
             .enumerate()
@@ -281,14 +280,14 @@ impl SubPopulation {
 
         // Precalculate shared factors
         let num_elites = ctx.config.borrow().num_elites as usize;
-        let population_factor = self.population.len() as FloatType - 1.0;
-        let elite_factor = 1.0 - num_elites as FloatType / self.population.len() as FloatType;
+        let population_factor = self.population.len() as f64 - 1.0;
+        let elite_factor = 1.0 - num_elites as f64 / self.population.len() as f64;
 
         // Calculate the biased fitness for each individual
         for (diversity_index, &(_, index)) in diversity_sorted.iter().enumerate() {
             // Ranks are normalized where 0 is the best and 1 is the worst
-            let diversity_rank: FloatType = diversity_index as FloatType / population_factor;
-            let fitness_rank: FloatType = index as FloatType / population_factor;
+            let diversity_rank: f64 = diversity_index as f64 / population_factor;
+            let fitness_rank: f64 = index as f64 / population_factor;
 
             if self.focus_diversity {
                 let biased_fitness = if index < num_elites {
@@ -343,7 +342,7 @@ impl SubPopulation {
         }
     }
 
-    fn average_broken_pairs_distance(&self, individual: &Individual, num: usize) -> FloatType {
+    fn average_broken_pairs_distance(&self, individual: &Individual, num: usize) -> f64 {
         // Check against the num_diversity_closest or the number of other individuals in the population
         let num_to_check = min(num, self.population.len() - 1);
         // Total sum of the diversity
@@ -362,7 +361,7 @@ impl SubPopulation {
         }
 
         // Return the average
-        return diversity_total as FloatType / num_to_check as FloatType;
+        return diversity_total as f64 / num_to_check as f64;
     }
 }
 
@@ -418,9 +417,9 @@ impl Population {
         self.tournament(ctx, ctx.config.borrow().tournament_size as usize)
     }
 
-    pub fn history_fraction(&self) -> FloatType {
-        self.feasible_history.iter().filter(|&&x| x).count() as FloatType
-            / self.feasible_history.len() as FloatType
+    pub fn history_fraction(&self) -> f64 {
+        self.feasible_history.iter().filter(|&&x| x).count() as f64
+            / self.feasible_history.len() as f64
     }
 
     fn tournament(&self, ctx: &Context, num_contestants: usize) -> &Individual {

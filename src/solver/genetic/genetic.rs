@@ -1,9 +1,9 @@
 use std::collections::HashSet;
 
-use crate::models::FloatType;
 use crate::solver::genetic::{Individual, Population, Split};
 use crate::solver::improvement::{LocalSearch, RuinRecreate};
 use crate::solver::{Context, Metaheuristic};
+use crate::utils::FloatCompare;
 
 #[derive(PartialEq)]
 pub enum State {
@@ -31,8 +31,8 @@ pub struct GeneticAlgorithm {
     pub best_iteration: u64,
     pub diversified_start: u64,
     pub diversify: bool,
-    pub current_best_solution_cost: FloatType,
-    pub diversity: FloatType,
+    pub current_best_solution_cost: f64,
+    pub diversity: f64,
 }
 
 impl GeneticAlgorithm {
@@ -53,7 +53,7 @@ impl GeneticAlgorithm {
             diversify: false,
 
             best_solution: None,
-            current_best_solution_cost: FloatType::INFINITY,
+            current_best_solution_cost: f64::INFINITY,
             best_iteration: 0,
             diversity: 1.0,
         }
@@ -147,8 +147,8 @@ impl GeneticAlgorithm {
             .feasible_history
             .iter()
             .filter(|&&b| b)
-            .count() as FloatType
-            / self.population.feasible_history.len() as FloatType;
+            .count() as f64
+            / self.population.feasible_history.len() as f64;
 
         {
             // Update the penalty
@@ -161,7 +161,7 @@ impl GeneticAlgorithm {
 
             // Make sure the penalty is in the range [0.01, 10_000.0]
             config.penalty_capacity =
-                0.0001f64.max(10_000_000.0f64.min(config.penalty_capacity as f64)) as FloatType;
+                0.0001f64.max(10_000_000.0f64.min(config.penalty_capacity as f64));
         }
 
         for individual in self.population.infeasible.population.iter_mut() {
@@ -228,11 +228,11 @@ impl GeneticAlgorithm {
             self.population.infeasible.get_average_cost(ctx)
         ));
         self.diversity =
-            self.population.feasible.get_diversity(ctx) / (ctx.problem.dim() - 1) as FloatType;
+            self.population.feasible.get_diversity(ctx) / (ctx.problem.dim() - 1) as f64;
         log_text.push_str(&format!(
             "Div {:.2} {:.2} | ",
             self.diversity,
-            self.population.infeasible.get_diversity(ctx) / (ctx.problem.dim() - 1) as FloatType
+            self.population.infeasible.get_diversity(ctx) / (ctx.problem.dim() - 1) as f64
         ));
         log_text.push_str(&format!(
             "Feas {:.2} | ",
@@ -243,12 +243,19 @@ impl GeneticAlgorithm {
     }
 
     fn update_best(&mut self, ctx: &Context) {
-        if self.child.is_feasible() && self.child.penalized_cost() < self.current_best_solution_cost
+        if self.child.is_feasible()
+            && self
+                .child
+                .penalized_cost()
+                .approx_lt(self.current_best_solution_cost)
         {
             self.best_iteration = self.iterations;
             self.current_best_solution_cost = self.child.penalized_cost();
             let mut search_history = ctx.search_history.borrow_mut();
-            if self.current_best_solution_cost < search_history.best_cost {
+            if self
+                .current_best_solution_cost
+                .approx_lt(search_history.best_cost)
+            {
                 self.best_solution = Some(self.child.clone());
                 search_history.add_message(format!("New best: {:.2}", self.child.penalized_cost()));
                 search_history.add(ctx, &self.child);
@@ -263,7 +270,7 @@ impl GeneticAlgorithm {
         self.population = Population::new(ctx);
         self.next_penalty_update = self.iterations;
         self.next_log_interval = self.iterations;
-        self.current_best_solution_cost = FloatType::INFINITY;
+        self.current_best_solution_cost = f64::INFINITY;
         self.best_iteration = self.iterations;
         self.state = State::Created;
     }
@@ -301,6 +308,7 @@ impl Metaheuristic for GeneticAlgorithm {
                     self.population
                         .add_individual(ctx, self.child.clone(), false);
                     self.rr.setup_mutation(ctx);
+                    ctx.reset_penalty();
                     self.log(ctx);
                 }
             }

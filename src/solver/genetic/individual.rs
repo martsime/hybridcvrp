@@ -1,11 +1,8 @@
 use std::cmp::Ordering;
 
-use float_cmp::approx_eq;
-
-use crate::constants::EPSILON;
-use crate::models::FloatType;
 use crate::solver::Context;
 use crate::solver::SolutionEvaluation;
+use crate::utils::FloatCompare;
 
 #[derive(Debug, Clone)]
 pub struct Individual {
@@ -16,7 +13,7 @@ pub struct Individual {
     // Solution representation split into routes
     pub phenotype: Vec<Vec<usize>>,
     // Biased fitness
-    pub fitness: FloatType,
+    pub fitness: f64,
     // Evaluation of the solution
     pub evaluation: SolutionEvaluation,
 }
@@ -27,7 +24,7 @@ impl Individual {
             number,
             genotype,
             phenotype: Vec::new(),
-            fitness: FloatType::INFINITY,
+            fitness: f64::INFINITY,
             evaluation: SolutionEvaluation::new(),
         }
     }
@@ -42,7 +39,7 @@ impl Individual {
             number,
             genotype,
             phenotype: vec![Vec::new(); num_vehicles], // Vec::with_capacity(num_vehicles),
-            fitness: FloatType::INFINITY,
+            fitness: f64::INFINITY,
             evaluation: SolutionEvaluation::new(),
         }
     }
@@ -82,7 +79,7 @@ impl Individual {
         self.evaluation.is_feasible()
     }
 
-    pub fn penalized_cost(&self) -> FloatType {
+    pub fn penalized_cost(&self) -> f64 {
         self.evaluation.penalized_cost
     }
 
@@ -118,24 +115,24 @@ impl Individual {
     }
 
     pub fn sort_routes(&mut self, ctx: &Context) {
-        let mut sorted_angles: Vec<(FloatType, usize)> = Vec::new();
+        let mut sorted_angles: Vec<(f64, usize)> = Vec::new();
 
         for (route_num, route) in self.phenotype.iter().enumerate() {
             if route.len() == 0 {
                 sorted_angles.push((10.0, route_num));
                 continue;
             }
-            let mut x: FloatType = 0.0;
-            let mut y: FloatType = 0.0;
+            let mut x = 0.0;
+            let mut y = 0.0;
             for &node in route.iter() {
-                x += ctx.problem.nodes[node].coord.lng as FloatType;
-                y += ctx.problem.nodes[node].coord.lat as FloatType;
+                x += ctx.problem.nodes[node].coord.lng;
+                y += ctx.problem.nodes[node].coord.lat;
             }
-            x /= route.len() as FloatType;
-            y /= route.len() as FloatType;
+            x /= route.len() as f64;
+            y /= route.len() as f64;
 
-            x -= ctx.problem.nodes[0].coord.lng as FloatType;
-            y -= ctx.problem.nodes[0].coord.lat as FloatType;
+            x -= ctx.problem.nodes[0].coord.lng;
+            y -= ctx.problem.nodes[0].coord.lat;
             let angle = y.atan2(x);
             sorted_angles.push((angle, route_num));
         }
@@ -170,12 +167,7 @@ impl PartialOrd for Individual {
 
 impl PartialEq for Individual {
     fn eq(&self, other: &Self) -> bool {
-        approx_eq!(
-            FloatType,
-            self.penalized_cost(),
-            other.penalized_cost(),
-            epsilon = EPSILON
-        )
+        self.penalized_cost().approx_eq(other.penalized_cost())
     }
 }
 

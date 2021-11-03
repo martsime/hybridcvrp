@@ -1,4 +1,3 @@
-use crate::models::{FloatType, IntType};
 use crate::solver::improvement::RuinRecreateSolution;
 use crate::solver::Context;
 
@@ -12,7 +11,7 @@ pub struct AdjacentStringRemoval {
     // Maximum cardinality of the removed strings
     lmax: usize,
     // Split string factor
-    alpha: FloatType,
+    alpha: f64,
 }
 
 impl AdjacentStringRemoval {
@@ -23,13 +22,13 @@ impl AdjacentStringRemoval {
             alpha: 0.01,
         }
     }
-    fn average_tour_cardinality(&self, solution: &RuinRecreateSolution) -> FloatType {
+    fn average_tour_cardinality(&self, solution: &RuinRecreateSolution) -> f64 {
         (solution
             .routes
             .iter()
-            .map(|route| route.nodes.len() as FloatType)
-            .sum::<FloatType>()
-            / solution.routes.len() as FloatType)
+            .map(|route| route.nodes.len() as f64)
+            .sum::<f64>()
+            / solution.routes.len() as f64)
             .round()
     }
 
@@ -47,9 +46,8 @@ impl AdjacentStringRemoval {
 
         // String procedure
         if ctx.random.real() < 0.5 {
-            let min_start_index = (node_index as IntType - lt as IntType + 1).max(0) as usize;
-            let max_start_index =
-                (route_length as IntType - lt as IntType).min(node_index as IntType) as usize;
+            let min_start_index = (node_index as i32 - lt as i32 + 1).max(0) as usize;
+            let max_start_index = (route_length as i32 - lt as i32).min(node_index as i32) as usize;
 
             let start_index = if min_start_index < max_start_index {
                 ctx.random.range_usize(min_start_index, max_start_index + 1)
@@ -76,10 +74,9 @@ impl AdjacentStringRemoval {
 
             let remove_size = lt + m;
 
-            let min_start_index =
-                (node_index as IntType - remove_size as IntType + 1).max(0) as usize;
-            let max_start_index = (route_length as IntType - remove_size as IntType)
-                .min(node_index as IntType) as usize;
+            let min_start_index = (node_index as i32 - remove_size as i32 + 1).max(0) as usize;
+            let max_start_index =
+                (route_length as i32 - remove_size as i32).min(node_index as i32) as usize;
 
             let start_index = if min_start_index < max_start_index {
                 ctx.random.range_usize(min_start_index, max_start_index + 1)
@@ -113,10 +110,10 @@ impl Ruin for AdjacentStringRemoval {
         // Equation 5
         let lsmax = self
             .average_tour_cardinality(solution)
-            .min(self.lmax as FloatType);
+            .min(self.lmax as f64);
 
         // Equation 6
-        let ksmax = 4.0 * self.cavg as FloatType / (1.0 + lsmax) - 1.0;
+        let ksmax = 4.0 * self.cavg as f64 / (1.0 + lsmax) - 1.0;
 
         // Equation 7
         let ks = (ctx.random.real() * ksmax).floor() as usize + 1;
@@ -124,7 +121,7 @@ impl Ruin for AdjacentStringRemoval {
         // Initial customer
         let c_seed: usize = ctx.random.range_usize(1, ctx.problem.nodes.len());
 
-        let neighbors = ctx.problem.neighbors(c_seed);
+        let neighbors = ctx.matrix_provider.correlation.get(c_seed);
 
         for &neighbor in neighbors.iter() {
             let neighbor_route = solution.locations[neighbor].route_index;
@@ -134,7 +131,7 @@ impl Ruin for AdjacentStringRemoval {
                 continue;
             }
 
-            let ltmax = lsmax.min(solution.routes[neighbor_route].nodes.len() as FloatType);
+            let ltmax = lsmax.min(solution.routes[neighbor_route].nodes.len() as f64);
 
             let lt = (ctx.random.real() * ltmax).floor() as usize + 1;
 

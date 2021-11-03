@@ -3,8 +3,6 @@ use std::cell::RefCell;
 
 use ahash::RandomState;
 
-use crate::models::FloatType;
-
 #[derive(Debug)]
 pub struct Random {
     pub rng: RefCell<Rng>,
@@ -30,8 +28,8 @@ impl Random {
         self.rng.borrow_mut().shuffle(container);
     }
 
-    pub fn real(&self) -> FloatType {
-        self.rng.borrow_mut().f64() as FloatType
+    pub fn real(&self) -> f64 {
+        self.rng.borrow_mut().f64() as f64
     }
 
     // Get random number in range [lower, upper). Upper is not inclusive

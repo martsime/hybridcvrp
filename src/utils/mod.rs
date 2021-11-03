@@ -1,3 +1,6 @@
+mod comparison;
+pub use self::comparison::*;
+
 mod parser;
 pub use self::parser::*;
 

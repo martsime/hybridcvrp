@@ -14,6 +14,9 @@ seed: 1
 # Number of iterations without improvement before restart: N^{IT}
 max_iterations: 20000
 
+# Problem size limit for precomutation of the distance matrix
+precompute_distance_size_limit: 3000
+
 #####################
 # GENETIC ALGORITHM #
 #####################
@@ -70,7 +73,7 @@ rr_start_temp: 10
 elite_education_start_temp: 50
 
 # Factor determining number of R&R movesin the genetic cycle: γ
-rr_gamma: 1
+rr_gamma: 1.0
 
 # Factor determining number of R&R movesin the elite education: γ^E
 elite_education_gamma: 1000.0

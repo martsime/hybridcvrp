@@ -3,7 +3,6 @@ use std::io::{BufRead, BufReader};
 use std::path::Path;
 
 use crate::config::Config;
-use crate::models::IntType;
 use crate::models::{Coordinate, Node, Problem, ProblemBuilder, Vehicle};
 
 pub fn parse_problem(config: &mut Config) -> Problem {
@@ -49,7 +48,7 @@ pub fn parse_problem(config: &mut Config) -> Problem {
         loop {
             if lines[line_number][0] == "CAPACITY" {
                 value = lines[line_number][1]
-                    .parse::<IntType>()
+                    .parse::<f64>()
                     .expect("Failed to parse capacity");
                 break;
             } else {
@@ -74,10 +73,10 @@ pub fn parse_problem(config: &mut Config) -> Problem {
         for i in 0..dimensions {
             coords.push(Coordinate {
                 lng: lines[line_number + i][1]
-                    .parse::<IntType>()
+                    .parse::<f64>()
                     .expect("Failed to parse coordinate"),
                 lat: lines[line_number + i][2]
-                    .parse::<IntType>()
+                    .parse::<f64>()
                     .expect("Failed to parse coordinate"),
             });
         }
@@ -99,7 +98,7 @@ pub fn parse_problem(config: &mut Config) -> Problem {
         for i in 0..dimensions {
             demand_values.push(
                 lines[line_number + i][1]
-                    .parse::<IntType>()
+                    .parse::<f64>()
                     .expect("Failed to parse demand"),
             );
         }
@@ -123,6 +122,6 @@ pub fn parse_problem(config: &mut Config) -> Problem {
     };
 
     let problem_builder = ProblemBuilder::new(nodes, vehicle);
-    let problem = problem_builder.build(config);
+    let problem = problem_builder.build();
     problem
 }
