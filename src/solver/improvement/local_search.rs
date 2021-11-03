@@ -4,7 +4,7 @@ use std::ptr;
 
 use ahash::RandomState;
 
-use crate::models::Matrix;
+use crate::models::{CorrelationMatrix, Matrix};
 use crate::solver::evaluate::route_cost;
 use crate::solver::genetic::Individual;
 use crate::solver::improvement::moves::{Moves, SwapStar};
@@ -17,6 +17,8 @@ pub struct LocalSearch {
 
     pub routes: Vec<LinkRoute>,
     pub customers: Vec<usize>,
+
+    pub correlation: CorrelationMatrix,
     pub granularity: usize,
 
     pub move_count: i32,
@@ -79,6 +81,7 @@ impl LocalSearch {
                     ctx.problem.dim(),
                 ),
                 granularity: ctx.config.borrow().local_search_granularity as usize,
+                correlation: ctx.matrix_provider.correlation.clone(),
                 routes: routes,
                 move_count: 0,
                 empty_routes: HashSet::with_capacity_and_hasher(
@@ -154,17 +157,13 @@ impl LocalSearch {
             let customers = &*{ &self.customers as *const Vec<usize> };
             for u_index in customers {
                 // Get all correlated customers in random order
-                let mut cor: Vec<usize> = self
-                    .ctx
-                    .matrix_provider
-                    .correlation
-                    .top_slice(*u_index, self.granularity)
-                    .iter()
-                    .copied()
-                    .collect();
-
-                if self.ctx.random.range_usize(0, cor.len()) == 0 {
-                    self.ctx.random.shuffle(cor.as_mut_slice());
+                let cor = &mut *{
+                    self.correlation.top_slice_mut(*u_index, self.granularity) as *mut [usize]
+                };
+                if self.ctx.random.range_usize(0, self.granularity) == 0 {
+                    self.ctx
+                        .random
+                        .shuffle(self.correlation.top_slice_mut(*u_index, self.granularity));
                 }
 
                 let u = &mut self.nodes[*u_index] as *mut LinkNode;

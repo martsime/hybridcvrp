@@ -66,6 +66,29 @@ impl<T: Copy> Matrix<T> {
             std::slice::from_raw_parts(self.ptr.offset((row * self.cols + col) as isize), number)
         }
     }
+
+    #[inline]
+    pub fn slice_mut(&self, row: usize, col: usize, number: usize) -> &mut [T] {
+        unsafe {
+            std::slice::from_raw_parts_mut(
+                self.ptr.offset((row * self.cols + col) as isize),
+                number,
+            )
+        }
+    }
+}
+
+impl<T: Copy> Clone for Matrix<T> {
+    fn clone(&self) -> Self {
+        let mut new_matrix = Self::new(self.rows, self.cols);
+
+        for i in 0..self.rows {
+            for j in 0..self.cols {
+                new_matrix.set(i, j, self.get(i, j));
+            }
+        }
+        new_matrix
+    }
 }
 
 impl<T> Drop for Matrix<T>
@@ -246,7 +269,7 @@ impl DistanceMatrix {
 
 const CORRELATION_LIMIT: usize = 100;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CorrelationMatrix {
     storage: Matrix<usize>,
     width: usize,
@@ -283,6 +306,10 @@ impl CorrelationMatrix {
 
     pub fn top_slice(&self, index: usize, number: usize) -> &[usize] {
         self.slice(index, 0, number)
+    }
+
+    pub fn top_slice_mut(&self, index: usize, number: usize) -> &mut [usize] {
+        self.storage.slice_mut(index, 0, number)
     }
 
     fn slice(&self, row: usize, start: usize, number: usize) -> &[usize] {

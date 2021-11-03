@@ -17,6 +17,9 @@ max_iterations: 20000
 # Problem size limit for precomutation of the distance matrix
 precompute_distance_size_limit: 3000
 
+# Round distances to integer values
+round_distances: true
+
 #####################
 # GENETIC ALGORITHM #
 #####################
@@ -49,6 +52,9 @@ num_elites: 4
 
 # Boolean turning elite education on/off
 elite_education: true
+
+# Boolean turning R&R on/off
+rr_mutation: true
 
 # Average number of customers removed during ruin: C̅
 average_ruin_cardinality: 10
