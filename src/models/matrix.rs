@@ -1,4 +1,7 @@
-use std::alloc::{alloc_zeroed, dealloc, Layout};
+use std::{
+    alloc::{alloc_zeroed, dealloc, Layout},
+    fmt::Display,
+};
 
 use lazysort::SortedBy;
 
@@ -102,6 +105,23 @@ where
     }
 }
 
+impl Display for Matrix<f64> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for i in 0..self.rows {
+            write!(f, "[ ")?;
+            for j in 0..self.cols {
+                if j < self.cols - 1 {
+                    write!(f, "{}, ", self.get(i, j))?;
+                } else {
+                    writeln!(f, "{} ]", self.get(i, j))?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
 /// Calculates the euclidian distance between two coordinates
 #[inline]
 fn euclidian(c1: &Coordinate, c2: &Coordinate) -> f64 {
@@ -113,7 +133,7 @@ pub struct DistanceMatrixBuilder {
     locations: Vec<Coordinate>,
     precompute: bool,
     rounded: bool,
-
+    input: Option<Vec<Vec<f64>>>,
     max_distance: Option<f64>,
 }
 
@@ -123,6 +143,7 @@ impl DistanceMatrixBuilder {
             locations: Vec::new(),
             precompute: false,
             rounded: false,
+            input: None,
             max_distance: None,
         }
     }
@@ -142,38 +163,71 @@ impl DistanceMatrixBuilder {
         self
     }
 
+    pub fn input(mut self, input: Vec<Vec<f64>>) -> Self {
+        self.input = Some(input);
+        self
+    }
+
     pub fn build(mut self) -> DistanceMatrix {
-        let matrix = match self.precompute {
-            true => {
-                let n = self.locations.len();
-                let mut matrix = Matrix::new(n, n);
-
-                // Assumes a symmetic matrix
-                for i in 0..n {
-                    for j in (i + 1)..n {
-                        let mut distance = euclidian(&self.locations[i], &self.locations[j]);
-                        if self.rounded {
-                            distance = distance.round();
+        let matrix = if let Some(input) = self.input {
+            self.precompute = true;
+            let n = self.locations.len();
+            let mut matrix = Matrix::new(n, n);
+            for (i, row) in input.iter().enumerate() {
+                for (j, &distance) in row.iter().enumerate() {
+                    let mut distance = distance;
+                    if self.rounded {
+                        distance = distance.round();
+                    }
+                    matrix.set(i + 1, j, distance);
+                    matrix.set(j, i + 1, distance);
+                    match self.max_distance.as_mut() {
+                        Some(max_distance) => {
+                            if distance.approx_gt(&*max_distance) {
+                                *max_distance = distance;
+                            }
                         }
-
-                        matrix.set(i, j, distance);
-                        matrix.set(j, i, distance);
-
-                        match self.max_distance.as_mut() {
-                            Some(max_distance) => {
-                                if distance.approx_gt(&*max_distance) {
-                                    *max_distance = distance;
-                                }
-                            }
-                            None => {
-                                self.max_distance = Some(distance);
-                            }
+                        None => {
+                            self.max_distance = Some(distance);
                         }
                     }
                 }
-                matrix
             }
-            false => Matrix::new(0, 0),
+
+            matrix
+        } else {
+            match self.precompute {
+                true => {
+                    let n = self.locations.len();
+                    let mut matrix = Matrix::new(n, n);
+
+                    // Assumes a symmetic matrix
+                    for i in 0..n {
+                        for j in (i + 1)..n {
+                            let mut distance = euclidian(&self.locations[i], &self.locations[j]);
+                            if self.rounded {
+                                distance = distance.round();
+                            }
+
+                            matrix.set(i, j, distance);
+                            matrix.set(j, i, distance);
+
+                            match self.max_distance.as_mut() {
+                                Some(max_distance) => {
+                                    if distance.approx_gt(&*max_distance) {
+                                        *max_distance = distance;
+                                    }
+                                }
+                                None => {
+                                    self.max_distance = Some(distance);
+                                }
+                            }
+                        }
+                    }
+                    matrix
+                }
+                false => Matrix::new(0, 0),
+            }
         };
 
         DistanceMatrix::new(
@@ -211,6 +265,16 @@ impl DistanceMatrix {
             locations,
             storage,
             precomputed,
+            rounded,
+            max_distance,
+        }
+    }
+
+    pub fn from_input(storage: Matrix<f64>, rounded: bool, max_distance: Option<f64>) -> Self {
+        Self {
+            locations: Vec::new(),
+            storage,
+            precomputed: true,
             rounded,
             max_distance,
         }
@@ -324,16 +388,21 @@ pub struct MatrixProvider {
 }
 
 impl MatrixProvider {
-    pub fn new(problem: &Problem, config: &Config) -> Self {
+    pub fn new(problem: &Problem, config: &Config, input_matrix: Option<Vec<Vec<f64>>>) -> Self {
+        let rounded: bool = config.round_distances;
         let locations = problem.nodes.iter().map(|node| node.coord).collect();
         let precompute: bool =
             problem.nodes.len() - 1 < config.precompute_distance_size_limit as usize;
-        let rounded: bool = config.round_distances;
-        let distance = DistanceMatrixBuilder::new()
+        let mut distance_builder = DistanceMatrixBuilder::new()
             .locations(locations)
             .precompute(precompute)
-            .rounded(rounded)
-            .build();
+            .rounded(rounded);
+
+        if let Some(input) = input_matrix {
+            distance_builder = distance_builder.input(input);
+        }
+
+        let distance = distance_builder.build();
 
         let correlation = CorrelationMatrix::new(&distance);
 

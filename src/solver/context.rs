@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 use crate::config::Config;
 use crate::models::{MatrixProvider, Problem};
 use crate::solver::SearchHistory;
-use crate::utils::Random;
+use crate::utils::{ProblemParser, Random};
 
 #[derive(Debug)]
 pub struct Context {
@@ -16,7 +16,8 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn new(problem: Problem, config: Config, start_time: Instant) -> Self {
+    pub fn new(mut parser: ProblemParser, config: Config, start_time: Instant) -> Self {
+        let problem = parser.problem.take().expect("Failed to parse problem");
         let random = if config.deterministic {
             log::info!("Deterministic with seed: {}", config.seed);
             Random::from_seed(config.seed)
@@ -24,7 +25,7 @@ impl Context {
             Random::new()
         };
 
-        let matrix_provider = MatrixProvider::new(&problem, &config);
+        let matrix_provider = MatrixProvider::new(&problem, &config, parser.matrix.take());
         log::info!("Matrices built!");
 
         let context = Self {

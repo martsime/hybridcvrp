@@ -24,10 +24,10 @@ fn main() {
     config.update_from_args(&args);
 
     log::info!("Loading problem file: {}", config.instance_path);
-    let problem = utils::parse_problem(&mut config);
+    let mut parser = utils::ProblemParser::new();
+    parser.parse(&mut config);
+    let ctx = Context::new(parser, config, start_time);
     log::info!("Problem load complete");
-
-    let ctx = Context::new(problem, config, start_time);
     let metaheuristic = GeneticAlgorithm::new(&ctx);
     let mut solver = Solver::new(ctx, metaheuristic);
     solver.run();
