@@ -13,7 +13,8 @@ pub struct Config {
     pub instance_path: String,
     pub solution_path: Option<String>,
     pub time_limit: u64,
-    pub max_iterations: u64,
+    pub max_iterations: Option<u64>,
+    pub max_iterations_without_improvement: u64,
     pub num_vehicles: u64,
     pub log_interval: u64,
     pub precompute_distance_size_limit: u64,
@@ -86,7 +87,8 @@ impl Config {
             instance_path: String::new(),
             solution_path: None,
             time_limit: 60,
-            max_iterations: 20_000,
+            max_iterations: None,
+            max_iterations_without_improvement: 20_000,
             num_vehicles: 1_000_000,
             log_interval: 100,
             precompute_distance_size_limit: 2_000,
@@ -203,7 +205,7 @@ impl Config {
         self.instance_path = args.instance_path.clone();
         self.solution_path = args.solution_path.clone();
         if let Some(max_iterations) = args.max_iterations {
-            self.max_iterations = max_iterations;
+            self.max_iterations_without_improvement = max_iterations;
         }
         if let Some(time_limit) = args.time_limit {
             self.time_limit = time_limit;

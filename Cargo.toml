@@ -33,5 +33,17 @@ wasm-bindgen = { version = "0.2.63", features = ["serde-serialize"], optional = 
 console_error_panic_hook = { version = "0.1.6", optional = true }
 js-sys = { version = "0.3.53", optional = true }
 
+[dev-dependencies]
+criterion = { version = "0.3", features = ["html_reports"] }
+
 [profile.release]
 lto = true
+codegen-units = 1
+
+[profile.bench]
+lto = true
+codegen-units = 1
+
+[[bench]]
+name = "performance"
+harness = false

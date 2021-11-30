@@ -13,6 +13,7 @@ pub struct Context {
     pub config: RefCell<Config>,
     pub random: Random,
     pub search_history: RefCell<SearchHistory>,
+    pub iteration: RefCell<u64>,
 }
 
 impl Context {
@@ -34,6 +35,7 @@ impl Context {
             config: RefCell::new(config),
             random,
             search_history: RefCell::new(SearchHistory::new(start_time)),
+            iteration: RefCell::new(0),
         };
 
         context.setup();
@@ -58,7 +60,15 @@ impl Context {
     }
 
     pub fn terminate(&self) -> bool {
-        self.elapsed_as_secs() >= self.config.borrow().time_limit
+        let config = self.config.borrow();
+        self.elapsed_as_secs() >= config.time_limit
+            || config.max_iterations.map_or(false, |max_iterations| {
+                *self.iteration.borrow() >= max_iterations
+            })
+    }
+
+    pub fn next_iteration(&self) {
+        *self.iteration.borrow_mut() += 1;
     }
 
     pub fn reset_penalty(&self) {

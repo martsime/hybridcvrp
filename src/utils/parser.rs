@@ -55,7 +55,11 @@ impl ProblemParser {
 
     pub fn parse(&mut self, config: &mut Config) {
         let filepath = Path::new(&config.instance_path);
-        assert!(filepath.exists(), "Cannot find instance file");
+        assert!(
+            filepath.exists(),
+            "Cannot find instance file: {}",
+            filepath.display()
+        );
 
         let lines = Self::read_file(&filepath);
 

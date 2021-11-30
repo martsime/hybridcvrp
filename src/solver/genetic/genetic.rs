@@ -328,6 +328,8 @@ impl Metaheuristic for GeneticAlgorithm {
                 }
             }
             State::Cycle => {
+                ctx.next_iteration();
+
                 // Select two parents and perform crossover
                 let parent_one = self.population.get_parent(ctx);
                 let parent_two = self.population.get_parent(ctx);
@@ -355,7 +357,9 @@ impl Metaheuristic for GeneticAlgorithm {
                 }
 
                 // Possible reset of population
-                if self.iterations - self.best_iteration > ctx.config.borrow().max_iterations {
+                if self.iterations - self.best_iteration
+                    > ctx.config.borrow().max_iterations_without_improvement
+                {
                     self.reset(ctx);
                 }
 

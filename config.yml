@@ -12,7 +12,7 @@ deterministic: false
 seed: 1
 
 # Number of iterations without improvement before restart: N^{IT}
-max_iterations: 20000
+max_iterations_without_improvement: 20000
 
 # Problem size limit for precomutation of the distance matrix
 precompute_distance_size_limit: 3000
