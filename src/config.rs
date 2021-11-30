@@ -11,7 +11,7 @@ use crate::cli::Args;
 pub struct Config {
     // General
     pub instance_path: String,
-    pub solution_path: String,
+    pub solution_path: Option<String>,
     pub time_limit: u64,
     pub max_iterations: u64,
     pub num_vehicles: u64,
@@ -84,7 +84,7 @@ impl Config {
         Self {
             // General
             instance_path: String::new(),
-            solution_path: String::new(),
+            solution_path: None,
             time_limit: 60,
             max_iterations: 20_000,
             num_vehicles: 1_000_000,
@@ -208,5 +208,6 @@ impl Config {
         if let Some(time_limit) = args.time_limit {
             self.time_limit = time_limit;
         }
+        self.round_distances = args.rounded;
     }
 }

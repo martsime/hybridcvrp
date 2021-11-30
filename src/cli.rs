@@ -3,9 +3,10 @@ use clap::{App, Arg};
 /// Representing the resulting command line arguments
 pub struct Args {
     pub instance_path: String,
-    pub solution_path: String,
+    pub solution_path: Option<String>,
     pub time_limit: Option<u64>,
     pub max_iterations: Option<u64>,
+    pub rounded: bool,
 }
 
 impl Args {
@@ -38,6 +39,11 @@ impl Args {
                     .takes_value(true)
                     .help("Time limit in seconds"),
             )
+            .arg(
+                Arg::with_name("rounded")
+                    .short("r")
+                    .help("Rounded distances"),
+            )
             .get_matches();
 
         let instance_path = matches
@@ -45,36 +51,24 @@ impl Args {
             .expect("Instance path is not provided")
             .to_owned();
 
-        let solution_path = matches
-            .value_of("solution_path")
-            .unwrap_or("output.sol")
-            .to_owned();
+        let solution_path = matches.value_of("solution_path").map(String::from);
 
-        let max_iterations = if let Some(iterations) = matches.value_of("iterations") {
-            Some(
-                iterations
-                    .parse::<u64>()
-                    .expect("Invalid iterations argument"),
-            )
-        } else {
-            None
-        };
+        let max_iterations = matches
+            .value_of("iterations")
+            .map(|value| value.parse::<u64>().expect("Invalid iterations argument!"));
 
-        let time_limit = if let Some(time_limit) = matches.value_of("time_limit") {
-            Some(
-                time_limit
-                    .parse::<u64>()
-                    .expect("Invalid time limit argument"),
-            )
-        } else {
-            None
-        };
+        let time_limit = matches
+            .value_of("time_limit")
+            .map(|value| value.parse::<u64>().expect("Invalid time limit argument!"));
+
+        let rounded = matches.is_present("rounded");
 
         Self {
             instance_path,
             solution_path,
             time_limit,
             max_iterations,
+            rounded,
         }
     }
 }
