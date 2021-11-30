@@ -25,6 +25,25 @@ impl From<&Individual> for HistoricSolution {
     }
 }
 
+impl fmt::Display for HistoricSolution {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut route_number = 1;
+        for route in self.routes.iter() {
+            if route.len() > 0 {
+                let mut route_string = format!("Route #{}:", route_number);
+                for stop in route.iter() {
+                    route_string.push_str(&format!(" {}", stop));
+                }
+                route_number += 1;
+                writeln!(f, "{}", route_string)?;
+            }
+        }
+        write!(f, "Cost {}", self.cost.round() as u64)?;
+
+        Ok(())
+    }
+}
+
 #[derive(Debug)]
 pub struct HistoryEntry {
     pub solution: HistoricSolution,
@@ -81,6 +100,9 @@ impl SearchHistory {
             timestamp,
         };
 
+        #[cfg(feature = "dimacs")]
+        println!("{}", history_entry.solution);
+
         let new_best_message = HistoryMessage {
             message: format!("New best: {:?}", self.best_cost),
             timestamp,
@@ -98,11 +120,6 @@ impl SearchHistory {
             message,
             timestamp: self.start_time.elapsed(),
         };
-        // log::info!(
-        //     "Time: {:?}, {}",
-        //     history_message.timestamp,
-        //     history_message.message
-        // );
         self.messages.push(history_message);
     }
 

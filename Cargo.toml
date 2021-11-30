@@ -10,7 +10,7 @@ crate-type = ["cdylib", "rlib"]
 [features]
 default = []
 
-unsafe-speedup = []
+dimacs = []
 wasm = ["wasm-bindgen", "console_error_panic_hook", "js-sys"]
 
 [dependencies]
