@@ -13,6 +13,7 @@ pub use self::schedule::*;
 use std::collections::HashSet;
 
 use ahash::RandomState;
+use instant::Duration;
 
 use crate::solver::genetic::Individual;
 use crate::solver::Context;
@@ -123,12 +124,7 @@ pub struct RuinRecreate {
     pub solution: RuinRecreateSolution,
     pub current_solution: RuinRecreateSolution,
     pub best_solution: Option<RuinRecreateSolution>,
-    pub total_iterations: usize,
-    pub iteration: usize,
-    pub min_temp: f64,
-    pub max_temp: f64,
-    pub cooling_factor: f64,
-    pub temp: f64,
+    pub acceptance: AcceptanceCriterion,
     pub update_penalty: bool,
 }
 
@@ -141,12 +137,7 @@ impl RuinRecreate {
             solution: RuinRecreateSolution::new(ctx),
             current_solution: RuinRecreateSolution::new(ctx),
             best_solution: None,
-            total_iterations: 0,
-            iteration: 0,
-            min_temp: 0.0,
-            max_temp: 0.0,
-            cooling_factor: 1.0,
-            temp: 1.0,
+            acceptance: IterationSchedule::new(100.0, 100).into(),
             update_penalty: false,
         };
         rr.setup_mutation(ctx);
@@ -155,19 +146,27 @@ impl RuinRecreate {
 
     pub fn setup_elite_education(&mut self, ctx: &Context) {
         let config = ctx.config.borrow();
-        self.total_iterations =
-            (config.elite_education_gamma * ctx.problem.num_customers() as f64).round() as usize;
-        self.min_temp = config.elite_education_final_temp;
-        self.max_temp = config.elite_education_start_temp;
+        if config.elite_education_time_based {
+            let duration_f64 = config.time_limit as f64 * config.elite_education_time_fraction;
+            let duration = Duration::from_secs_f64(duration_f64);
+            self.acceptance = TimeSchedule::new(config.elite_education_start_temp, duration).into();
+        } else {
+            let iterations = (config.elite_education_gamma * ctx.problem.num_customers() as f64)
+                .round() as usize;
+            self.acceptance =
+                IterationSchedule::new(config.elite_education_start_temp, iterations).into();
+        }
         self.update_penalty = true;
+    }
+
+    pub fn set_acceptance(&mut self, acceptance: AcceptanceCriterion) {
+        self.acceptance = acceptance;
     }
 
     pub fn setup_mutation(&mut self, ctx: &Context) {
         let config = ctx.config.borrow();
-        self.total_iterations =
-            (config.rr_gamma * ctx.problem.num_customers() as f64).round() as usize;
-        self.min_temp = config.rr_final_temp;
-        self.max_temp = config.rr_start_temp;
+        let iterations = (config.rr_gamma * ctx.problem.num_customers() as f64).round() as usize;
+        self.acceptance = IterationSchedule::new(config.rr_start_temp, iterations).into();
         self.update_penalty = false;
     }
 
@@ -180,15 +179,14 @@ impl RuinRecreate {
         self.current_solution = self.solution.clone();
         let routes: Vec<usize> = (0..self.solution.routes.len()).into_iter().collect();
         self.solution.evaluate(self.ctx, routes.iter());
+        self.acceptance.reset();
+        // self.acceptance.print();
 
         self.best_solution = Some(self.solution.clone());
-        self.cooling_factor = self.calculate_cooling_factor();
-        self.temp = self.max_temp;
-        self.iteration = 0;
     }
 
     pub fn complete(&self) -> bool {
-        self.iteration >= self.total_iterations
+        self.acceptance.completed()
     }
 
     fn update_best(&mut self) {
@@ -205,18 +203,6 @@ impl RuinRecreate {
             search_history
                 .add_message(format!("New best: {:.2}", best_individual.penalized_cost()));
             search_history.add(self.ctx, &best_individual);
-        }
-    }
-
-    fn calculate_cooling_factor(&self) -> f64 {
-        if self.max_temp.approx_eq(0.0) {
-            1.0
-        } else {
-            if self.min_temp.approx_eq(0.0) {
-                ((0.000001 / self.max_temp) * 1.0).powf(1.0f64 / self.total_iterations as f64)
-            } else {
-                ((self.min_temp / self.max_temp) * 1.0).powf(1.0f64 / self.total_iterations as f64)
-            }
         }
     }
 
@@ -250,9 +236,8 @@ impl RuinRecreate {
             self.ruin.run(self.ctx, &mut self.current_solution);
             self.recreate.run(self.ctx, &mut self.current_solution);
             if self
-                .current_solution
-                .cost
-                .approx_lt(cost_before - self.temp * self.ctx.random.real().ln())
+                .acceptance
+                .accept(self.current_solution.cost, cost_before, &self.ctx.random)
             {
                 if let Some(best_solution) = self.best_solution.as_ref() {
                     if self.current_solution.cost.approx_lt(best_solution.cost) {
@@ -264,13 +249,8 @@ impl RuinRecreate {
                 self.solution.from(&self.current_solution);
             }
             self.current_solution.from(&self.solution);
-            self.temp *= self.cooling_factor;
-            if self.temp < self.min_temp {
-                self.temp = self.min_temp;
-            }
-            self.iteration += 1;
-
-            if self.iteration >= self.total_iterations {
+            self.acceptance.update();
+            if self.acceptance.completed() {
                 break;
             }
         }

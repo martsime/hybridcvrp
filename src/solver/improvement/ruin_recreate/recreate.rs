@@ -77,9 +77,9 @@ impl Recreate for GreedyBlink {
             let mut best_distance = f64::MAX;
             let mut best_node_index = 0;
 
-            for (route_number, route) in solution.routes.iter_mut().enumerate() {
+            for &route_number in updated_routes.iter() {
+                let route = solution.routes.get_mut(route_number).unwrap();
                 if (route.overload + demand).approx_lte(0.0) {
-                    // && // solution.ruined_routes.contains(&route_number) {
                     for index in 0..=route.nodes.len() {
                         let delta_distance = route.delta_distance(index, customer, ctx);
                         if delta_distance.approx_lt(best_distance) {
@@ -99,8 +99,6 @@ impl Recreate for GreedyBlink {
                 solution.routes[best_route_number].add(best_node_index, customer, ctx);
                 updated_routes.insert(best_route_number);
             } else {
-                log::info!("Cannot insert feasibly!");
-                // Greedy insert infeasible
                 let mut best_route: Option<usize> = None;
                 let mut best_cost = f64::MAX;
                 let mut best_node_index = 0;

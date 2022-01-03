@@ -29,6 +29,16 @@ impl Individual {
         }
     }
 
+    pub fn empty() -> Self {
+        Self {
+            number: 0,
+            genotype: Vec::new(),
+            phenotype: Vec::new(),
+            fitness: f64::INFINITY,
+            evaluation: SolutionEvaluation::new(),
+        }
+    }
+
     pub fn new_random(ctx: &Context, number: u64) -> Self {
         let mut genotype: Vec<usize> = (1usize..ctx.problem.nodes.len()).collect();
 
@@ -137,7 +147,7 @@ impl Individual {
             sorted_angles.push((angle, route_num));
         }
         sorted_angles.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-        let mut new_phenotype = Vec::new();
+        let mut new_phenotype = Vec::with_capacity(self.phenotype.len());
 
         for &(_angle, route_num) in sorted_angles.iter() {
             new_phenotype.push(self.phenotype[route_num].clone());

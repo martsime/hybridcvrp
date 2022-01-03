@@ -97,4 +97,19 @@ impl Context {
             _ => 100.0,
         }
     }
+
+    pub fn from_mapping(&self, mapping: &[usize]) -> Self {
+        let mut search_history =
+            SearchHistory::new(self.search_history.borrow().start_time.clone());
+        search_history.log_new_best(false);
+
+        Self {
+            problem: self.problem.from_mapping(mapping),
+            matrix_provider: self.matrix_provider.from_mapping(mapping),
+            config: self.config.clone(),
+            random: self.random.clone(),
+            search_history: RefCell::new(search_history),
+            iteration: RefCell::new(0),
+        }
+    }
 }

@@ -3,7 +3,7 @@
 ###########
 
 # Time limit in seconds
-time_limit: 60
+time_limit: 600
 
 # Boolean deciding whether the run is deterministic or stochastic
 deterministic: false
@@ -19,6 +19,10 @@ precompute_distance_size_limit: 3000
 
 # Round distances to integer values
 round_distances: true
+
+decompose_limit: 3000
+
+decomposed_problem_min_size: 150
 
 #####################
 # GENETIC ALGORITHM #
@@ -83,3 +87,7 @@ rr_gamma: 1.0
 
 # Factor determining number of R&R movesin the elite education: γ^E
 elite_education_gamma: 1000.0
+
+elite_education_problem_size_limit: 500
+elite_education_time_based: true
+elite_education_time_fraction: 0.05

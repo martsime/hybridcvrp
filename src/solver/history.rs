@@ -74,6 +74,8 @@ pub struct SearchHistory {
     pub start_time: Instant,
 
     pub messages: Vec<HistoryMessage>,
+
+    log_new_best: bool,
 }
 
 impl SearchHistory {
@@ -83,6 +85,7 @@ impl SearchHistory {
             best_cost: f64::INFINITY,
             start_time,
             messages: Vec::new(),
+            log_new_best: true,
         }
     }
 
@@ -101,7 +104,11 @@ impl SearchHistory {
         };
 
         #[cfg(feature = "dimacs")]
-        println!("{}", history_entry.solution);
+        {
+            if self.log_new_best {
+                println!("{}", history_entry.solution);
+            }
+        }
 
         let new_best_message = HistoryMessage {
             message: format!("New best: {:?}", self.best_cost),
@@ -129,5 +136,9 @@ impl SearchHistory {
 
     pub fn last_entry(&self) -> Option<&HistoryEntry> {
         self.history.last()
+    }
+
+    pub fn log_new_best(&mut self, log_new_best: bool) {
+        self.log_new_best = log_new_best;
     }
 }

@@ -73,4 +73,14 @@ impl Problem {
             (((y.atan2(x) / std::f64::consts::PI) * 32768.0).round() as i32).rem_euclid(65536);
         angle
     }
+
+    pub fn from_mapping(&self, mapping: &[usize]) -> Self {
+        Self {
+            nodes: mapping
+                .iter()
+                .map(|&index| self.nodes[index].clone())
+                .collect(),
+            vehicle: self.vehicle.clone(),
+        }
+    }
 }

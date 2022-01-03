@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use hybridcvrp::config::Config;
 use hybridcvrp::solver::genetic::GeneticAlgorithm;
@@ -11,7 +11,7 @@ fn code(_lol: usize) {
     let start_time = Instant::now();
     let mut config = Config::load_yaml_file("config.yml");
     config.deterministic = true;
-    config.max_iterations = Some(500);
+    config.max_iterations = Some(1000);
     config.time_limit = 1000;
     config.instance_path = "instances/X-n101-k25.vrp".to_owned();
     config.elite_education = false;
@@ -30,7 +30,7 @@ pub fn bench(c: &mut Criterion) {
 
 criterion_group! {
     name = benches;
-    config = Criterion::default().sample_size(50).measurement_time(Duration::from_secs(60));
+    config = Criterion::default().sample_size(50);
     targets = bench
 }
 criterion_main!(benches);

@@ -6,7 +6,7 @@ use crate::solver::{Context, Metaheuristic};
 use crate::utils::FloatCompare;
 
 #[derive(PartialEq)]
-pub enum State {
+enum State {
     Created,
     EliteEducation,
     Initialization,
@@ -15,7 +15,7 @@ pub enum State {
 }
 
 pub struct GeneticAlgorithm {
-    pub state: State,
+    state: State,
     pub population: Population,
     pub ls: LocalSearch,
     pub rr: RuinRecreate,
@@ -171,7 +171,7 @@ impl GeneticAlgorithm {
         self.population.infeasible.population.sort();
     }
 
-    fn educate(&mut self, ctx: &Context) {
+    pub fn educate(&mut self, ctx: &Context) {
         // Local search
         let child = &mut self.child;
         if ctx.config.borrow().ls_enabled {
@@ -242,7 +242,7 @@ impl GeneticAlgorithm {
         log::debug!("{}", log_text);
     }
 
-    fn update_best(&mut self, ctx: &Context) {
+    pub fn update_best(&mut self, ctx: &Context) {
         if self.child.is_feasible()
             && self
                 .child
@@ -274,6 +274,26 @@ impl GeneticAlgorithm {
         self.best_iteration = self.iterations;
         self.num_initialized = 0;
         self.state = State::Created;
+    }
+
+    pub fn add_initial(&mut self, ctx: &Context, individual: Individual) {
+        self.add_individual(ctx, individual.clone());
+        self.child = individual;
+        self.update_best(ctx);
+    }
+
+    pub fn add_individual(&mut self, ctx: &Context, individual: Individual) {
+        self.population.add_individual(ctx, individual, false)
+    }
+
+    pub fn create_initial_individual(&mut self, ctx: &Context) -> Individual {
+        let max_routes = ctx.config.borrow().num_vehicles;
+        let mut new_child = Individual::new_random(ctx, self.num_initialized);
+        std::mem::swap(&mut new_child, &mut self.child);
+        self.split.run(ctx, &mut self.child, max_routes);
+        self.educate(ctx);
+        std::mem::swap(&mut new_child, &mut self.child);
+        return new_child;
     }
 }
 
@@ -316,12 +336,8 @@ impl Metaheuristic for GeneticAlgorithm {
             State::Initialization => {
                 if self.num_initialized < ctx.config.borrow().initial_individuals {
                     // Create random individual
-                    let max_routes = ctx.config.borrow().num_vehicles;
-                    self.child = Individual::new_random(ctx, self.num_initialized);
-                    self.split.run(ctx, &mut self.child, max_routes);
-                    self.educate(ctx);
-                    self.population
-                        .add_individual(ctx, self.child.clone(), true);
+                    let new_child = self.create_initial_individual(ctx);
+                    self.population.add_individual(ctx, new_child, true);
                     self.num_initialized += 1;
                 } else {
                     self.state = State::Cycle;

@@ -12,7 +12,11 @@ pub trait Acceptance {
 
     fn update(&mut self);
 
-    fn valid(&self) -> bool;
+    fn completed(&self) -> bool;
+
+    fn reset(&mut self);
+
+    fn print(&self);
 }
 
 pub trait TemperatureAcceptance: Acceptance {
@@ -47,6 +51,7 @@ impl IterationSchedule {
 }
 
 impl Acceptance for IterationSchedule {
+    #[inline]
     fn accept(&self, new_cost: f64, old_cost: f64, random: &Random) -> bool {
         <Self as TemperatureAcceptance>::accept(&self, new_cost, old_cost, random)
     }
@@ -57,8 +62,17 @@ impl Acceptance for IterationSchedule {
         self.temp = ((t * -COOLING_FACTOR).exp() - t * MIN_VALUE) * self.start_temp;
     }
 
-    fn valid(&self) -> bool {
-        self.iteration <= self.total_iterations
+    fn completed(&self) -> bool {
+        self.iteration >= self.total_iterations
+    }
+
+    fn reset(&mut self) {
+        self.iteration = 0;
+        self.temp = self.start_temp;
+    }
+
+    fn print(&self) {
+        log::info!("Total iterations: {}", self.total_iterations);
     }
 }
 
@@ -81,7 +95,7 @@ pub struct TimeSchedule {
     pub iterations: usize,
     iterations_since_update: usize,
     update_rate: usize,
-    valid: bool,
+    completed: bool,
 }
 
 impl TimeSchedule {
@@ -108,7 +122,7 @@ impl TimeSchedule {
             /// The current temperature
             temp: start_temp,
 
-            valid: true,
+            completed: false,
         }
     }
 
@@ -118,6 +132,7 @@ impl TimeSchedule {
 }
 
 impl Acceptance for TimeSchedule {
+    #[inline]
     fn accept(&self, new_cost: f64, old_cost: f64, random: &Random) -> bool {
         <Self as TemperatureAcceptance>::accept(&self, new_cost, old_cost, random)
     }
@@ -130,13 +145,23 @@ impl Acceptance for TimeSchedule {
             self.temp = ((t * -COOLING_FACTOR).exp() - t * MIN_VALUE) * self.start_temp;
             self.iterations_since_update = 0;
             if t >= 1.0 {
-                self.valid = false;
+                self.completed = true;
             }
         }
     }
 
-    fn valid(&self) -> bool {
-        self.valid
+    fn completed(&self) -> bool {
+        self.completed
+    }
+
+    fn reset(&mut self) {
+        self.start = Instant::now();
+        self.iterations = 0;
+        self.iterations_since_update = 0;
+    }
+
+    fn print(&self) {
+        log::info!("Duration: {:?}", self.duration);
     }
 }
 
@@ -147,6 +172,65 @@ impl TemperatureAcceptance for TimeSchedule {
 
     fn elapsed(&self) -> f64 {
         self.start.elapsed().as_secs_f64() / self.duration
+    }
+}
+
+pub enum AcceptanceCriterion {
+    Iteration(IterationSchedule),
+    Time(TimeSchedule),
+}
+
+impl Acceptance for AcceptanceCriterion {
+    #[inline]
+    fn accept(&self, new_cost: f64, old_cost: f64, random: &Random) -> bool {
+        match self {
+            Self::Iteration(schedule) => <IterationSchedule as TemperatureAcceptance>::accept(
+                schedule, new_cost, old_cost, random,
+            ),
+            Self::Time(schedule) => <TimeSchedule as TemperatureAcceptance>::accept(
+                schedule, new_cost, old_cost, random,
+            ),
+        }
+    }
+
+    fn update(&mut self) {
+        match self {
+            Self::Iteration(schedule) => schedule.update(),
+            Self::Time(schedule) => schedule.update(),
+        }
+    }
+
+    fn completed(&self) -> bool {
+        match self {
+            Self::Iteration(schedule) => schedule.completed(),
+            Self::Time(schedule) => schedule.completed(),
+        }
+    }
+
+    fn reset(&mut self) {
+        match self {
+            Self::Iteration(schedule) => schedule.reset(),
+            Self::Time(schedule) => schedule.reset(),
+        }
+    }
+
+    fn print(&self) {
+        match self {
+            Self::Iteration(schedule) => schedule.print(),
+            Self::Time(schedule) => schedule.print(),
+        }
+    }
+}
+
+impl From<IterationSchedule> for AcceptanceCriterion {
+    fn from(schedule: IterationSchedule) -> Self {
+        Self::Iteration(schedule)
+    }
+}
+
+impl From<TimeSchedule> for AcceptanceCriterion {
+    fn from(schedule: TimeSchedule) -> Self {
+        Self::Time(schedule)
     }
 }
 

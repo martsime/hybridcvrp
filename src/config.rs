@@ -19,6 +19,8 @@ pub struct Config {
     pub log_interval: u64,
     pub precompute_distance_size_limit: u64,
     pub round_distances: bool,
+    pub decompose_limit: u64,
+    pub decomposed_problem_min_size: u64,
 
     // Randomization
     pub deterministic: bool,
@@ -78,6 +80,8 @@ pub struct Config {
     pub elite_education_gamma: f64,
     pub elite_education_final_temp: f64,
     pub elite_education_start_temp: f64,
+    pub elite_education_time_based: bool,
+    pub elite_education_time_fraction: f64,
 }
 
 impl Config {
@@ -93,6 +97,8 @@ impl Config {
             log_interval: 100,
             precompute_distance_size_limit: 2_000,
             round_distances: true,
+            decompose_limit: 3000,
+            decomposed_problem_min_size: 200,
 
             // Randomization
             deterministic: false,
@@ -152,6 +158,8 @@ impl Config {
             elite_education_gamma: 1_000.0,
             elite_education_final_temp: 1.0,
             elite_education_start_temp: 50.0,
+            elite_education_time_based: false,
+            elite_education_time_fraction: 0.02,
         }
     }
 

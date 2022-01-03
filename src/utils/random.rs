@@ -3,7 +3,7 @@ use std::cell::RefCell;
 
 use ahash::RandomState;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Random {
     pub rng: RefCell<Rng>,
     pub seed: Option<u64>,

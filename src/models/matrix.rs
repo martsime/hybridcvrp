@@ -79,6 +79,28 @@ impl<T: Copy> Matrix<T> {
             )
         }
     }
+
+    pub fn from_mapping(&self, mapping: &[usize]) -> Self {
+        let new_size = mapping.len();
+        let new_matrix = Self::new(new_size, new_size);
+        for i in 0..new_size {
+            for j in 0..new_size {
+                *new_matrix.get_mut(i, j) = self.get(mapping[i], mapping[j]);
+            }
+        }
+        new_matrix
+    }
+
+    pub fn get_max(&self) -> T
+    where
+        T: PartialOrd,
+    {
+        *self
+            .slice(0, 0, self.rows * self.cols)
+            .into_iter()
+            .max_by(|&a, &b| a.partial_cmp(b).unwrap())
+            .unwrap()
+    }
 }
 
 impl<T: Copy> Clone for Matrix<T> {
@@ -329,9 +351,35 @@ impl DistanceMatrix {
     pub fn max(&self) -> Option<f64> {
         self.max_distance
     }
+
+    pub fn from_mapping(&self, mapping: &[usize]) -> Self {
+        let locations = mapping
+            .iter()
+            .map(|&index| self.locations[index].clone())
+            .collect();
+        let size = mapping.len();
+        let storage = Matrix::new(size, size);
+        for i in 0..size {
+            for j in 0..size {
+                *storage.get_mut(i, j) = self.get(mapping[i], mapping[j]);
+            }
+        }
+        let max_distance = if self.precomputed {
+            Some(storage.get_max())
+        } else {
+            None
+        };
+        Self {
+            locations,
+            storage,
+            precomputed: true,
+            rounded: self.rounded,
+            max_distance,
+        }
+    }
 }
 
-const CORRELATION_LIMIT: usize = 100;
+const CORRELATION_LIMIT: usize = 200;
 
 #[derive(Debug, Clone)]
 pub struct CorrelationMatrix {
@@ -406,6 +454,15 @@ impl MatrixProvider {
 
         let correlation = CorrelationMatrix::new(&distance);
 
+        Self {
+            distance,
+            correlation,
+        }
+    }
+
+    pub fn from_mapping(&self, mapping: &[usize]) -> Self {
+        let distance = self.distance.from_mapping(mapping);
+        let correlation = CorrelationMatrix::new(&distance);
         Self {
             distance,
             correlation,
