@@ -2,7 +2,7 @@ use instant::Instant;
 
 use hybridcvrp::cli::Args;
 use hybridcvrp::config::Config;
-use hybridcvrp::solver::genetic::GeneticAlgorithm;
+use hybridcvrp::solver::genetic::{DecomposedGeneticAlgorithm, GeneticAlgorithm};
 use hybridcvrp::solver::{Context, Solver};
 use hybridcvrp::utils;
 
@@ -24,11 +24,28 @@ fn main() {
     config.update_from_args(&args);
 
     log::info!("Loading problem file: {}", config.instance_path);
-    let problem = utils::parse_problem(&mut config);
+    let mut parser = utils::ProblemParser::new();
+    parser.parse(&mut config);
+    let ctx = Context::new(parser, config, start_time);
+    log::info!("Problem load complete");
 
-    let ctx = Context::new(problem, config, start_time);
-    let metaheuristic = GeneticAlgorithm::new(&ctx);
-    let mut solver = Solver::new(ctx, metaheuristic);
-    solver.run();
-    utils::write_solution_file(&solver.ctx);
+    let should_decompose =
+        ctx.problem.num_customers() as u64 >= ctx.config.borrow().decompose_limit;
+
+    match should_decompose {
+        true => {
+            let metaheuristic = DecomposedGeneticAlgorithm::new(&ctx);
+            let mut solver = Solver::new(ctx, metaheuristic);
+            log::info!("Algorithm: Decomposed Genetic Algorithm");
+            solver.run();
+            utils::write_solution_file(&solver.ctx);
+        }
+        false => {
+            let metaheuristic = GeneticAlgorithm::new(&ctx);
+            let mut solver = Solver::new(ctx, metaheuristic);
+            log::info!("Algorithm: Genetic Algorithm");
+            solver.run();
+            utils::write_solution_file(&solver.ctx);
+        }
+    };
 }

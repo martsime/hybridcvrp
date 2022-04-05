@@ -1,3 +1,5 @@
+mod decomposition;
+pub use self::decomposition::*;
 mod individual;
 pub use self::individual::*;
 mod genetic;

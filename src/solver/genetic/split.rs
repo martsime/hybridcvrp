@@ -1,10 +1,9 @@
 use std::collections::VecDeque;
 
-use crate::constants::EPSILON;
 use crate::models::Matrix;
-use crate::models::{FloatType, IntType};
 use crate::solver::genetic::Individual;
 use crate::solver::Context;
+use crate::utils::FloatCompare;
 
 pub struct MyVecDeque<T> {
     queue: VecDeque<T>,
@@ -66,17 +65,17 @@ where
 
 #[derive(Debug, Clone)]
 pub struct NodeSplit {
-    pub demand: IntType,
-    pub distance_depot: FloatType,
-    pub distance_next: FloatType,
+    pub demand: f64,
+    pub distance_depot: f64,
+    pub distance_next: f64,
 }
 
 impl NodeSplit {
     pub fn new() -> Self {
         Self {
-            demand: 0,
-            distance_depot: 0.0,
-            distance_next: 0.0,
+            demand: f64::default(),
+            distance_depot: f64::default(),
+            distance_next: f64::default(),
         }
     }
 }
@@ -84,7 +83,7 @@ impl NodeSplit {
 #[derive(Debug)]
 pub struct Split {
     // Cost of shortest path from node 0 to index
-    pub path_cost: Matrix<FloatType>,
+    pub path_cost: Matrix<f64>,
     // List of predecessors
     pub predecessors: Matrix<usize>,
 
@@ -92,12 +91,12 @@ pub struct Split {
     pub nodes: Vec<NodeSplit>,
 
     // Cumulative distance for each node
-    pub cum_distance: Vec<FloatType>,
+    pub cum_distance: Vec<f64>,
     // Cumulative load for each node
-    pub cum_load: Vec<IntType>,
+    pub cum_load: Vec<f64>,
 
-    pub vehicle_cap: IntType,
-    pub penalty_capacity: FloatType,
+    pub vehicle_cap: f64,
+    pub penalty_capacity: f64,
 }
 
 impl Split {
@@ -107,8 +106,8 @@ impl Split {
             path_cost: Matrix::new(num_vehicles + 1, ctx.problem.dim()),
             predecessors: Matrix::new(num_vehicles + 1, ctx.problem.dim()),
             nodes: vec![NodeSplit::new(); ctx.problem.dim()],
-            cum_distance: vec![0.0; ctx.problem.dim()],
-            cum_load: vec![0; ctx.problem.dim()],
+            cum_distance: vec![f64::default(); ctx.problem.dim()],
+            cum_load: vec![f64::default(); ctx.problem.dim()],
             vehicle_cap: ctx.problem.vehicle.cap,
             penalty_capacity: ctx.config.borrow().penalty_capacity,
         }
@@ -121,10 +120,12 @@ impl Split {
             let mut node = self.nodes.get_mut(i).expect("No node");
             let genotype_node = individual.genotype[i - 1];
             node.demand = ctx.problem.nodes[genotype_node].demand;
-            node.distance_depot = ctx.problem.distance.get(genotype_node, 0) as FloatType;
+            node.distance_depot = ctx.matrix_provider.distance.get(genotype_node, 0) as f64;
             node.distance_next = if i < num_nodes - 1 {
                 let next_genotype_node = individual.genotype[i];
-                ctx.problem.distance.get(genotype_node, next_genotype_node) as FloatType
+                ctx.matrix_provider
+                    .distance
+                    .get(genotype_node, next_genotype_node) as f64
             } else {
                 -1e30
             };
@@ -152,12 +153,12 @@ impl Split {
     }
 
     #[inline]
-    fn propagate(&self, i: usize, j: usize, k: usize) -> FloatType {
+    fn propagate(&self, i: usize, j: usize, k: usize) -> f64 {
         self.path_cost.get(k, i) + self.cum_distance[j] - self.cum_distance[i + 1]
             + self.nodes[i + 1].distance_depot
             + self.nodes[j].distance_depot
             + self.penalty_capacity
-                * (0.max(self.cum_load[j] - self.cum_load[i] - self.vehicle_cap) as FloatType)
+                * (0f64.max(self.cum_load[j] - self.cum_load[i] - self.vehicle_cap) as f64)
     }
 
     #[inline]
@@ -165,19 +166,19 @@ impl Split {
         self.path_cost.get(k, j) + self.nodes[j + 1].distance_depot
             > self.path_cost.get(k, i) + self.nodes[i + 1].distance_depot + self.cum_distance[j + 1]
                 - self.cum_distance[i + 1]
-                + self.penalty_capacity * ((self.cum_load[j] - self.cum_load[i]) as FloatType)
+                + self.penalty_capacity * ((self.cum_load[j] - self.cum_load[i]) as f64)
     }
 
     #[inline]
     fn dominates_right(&self, i: usize, j: usize, k: usize) -> bool {
-        self.path_cost.get(k, j) + self.nodes[j + 1].distance_depot
-            < self.path_cost.get(k, i) + self.nodes[i + 1].distance_depot + self.cum_distance[j + 1]
-                - self.cum_distance[i + 1]
-                + EPSILON
+        (self.path_cost.get(k, j) + self.nodes[j + 1].distance_depot).approx_lte(
+            self.path_cost.get(k, i) + self.nodes[i + 1].distance_depot + self.cum_distance[j + 1]
+                - self.cum_distance[i + 1],
+        )
     }
 
     pub fn run(&mut self, ctx: &Context, individual: &mut Individual, max_vehicles: u64) {
-        let max_vehicles = max_vehicles.max(ctx.problem.vehicle_lower_bound) as usize;
+        let max_vehicles = max_vehicles.max(ctx.vehicle_lower_bound()) as usize;
         self.load(ctx, individual);
 
         if !self.split(ctx, individual, max_vehicles) {
@@ -216,8 +217,11 @@ impl Split {
                         queue.push_back(i);
                     }
                     while queue.len() > 1
-                        && self.propagate(*queue.front(), i + 1, 0)
-                            > self.propagate(queue.next_front(), i + 1, 0) - EPSILON
+                        && (self.propagate(*queue.front(), i + 1, 0)).approx_gte(self.propagate(
+                            queue.next_front(),
+                            i + 1,
+                            0,
+                        ))
                     {
                         queue.pop_front();
                     }
@@ -226,36 +230,34 @@ impl Split {
         } else {
             // Bellman-based split algorithm in O(nB) where B is the average route length
             for from_index in 0..(dim - 1) {
-                let mut load = 0;
+                let mut load = 0.0;
                 let mut to_index = from_index + 1;
-                let mut cost = 0;
+                let mut cost = 0.0;
                 while to_index < dim
-                    && load as FloatType
-                        + ctx.problem.nodes[individual.genotype_node(to_index)].demand as FloatType
-                        <= cap as FloatType * capacity_factor
+                    && (load + ctx.problem.nodes[individual.genotype_node(to_index)].demand)
+                        .approx_lte(cap * capacity_factor)
                 {
                     load += ctx.problem.nodes[individual.genotype_node(to_index)].demand;
                     if to_index == from_index + 1 {
                         cost = ctx
-                            .problem
+                            .matrix_provider
                             .distance
                             .get(0, individual.genotype_node(to_index));
                     } else {
-                        cost += ctx.problem.distance.get(
+                        cost += ctx.matrix_provider.distance.get(
                             individual.genotype_node(to_index - 1),
                             individual.genotype_node(to_index),
                         );
                     }
                     let mut new_path_cost = self.path_cost.get(0, from_index)
-                        + cost as FloatType
+                        + cost
                         + ctx
-                            .problem
+                            .matrix_provider
                             .distance
-                            .get(individual.genotype_node(to_index), 0)
-                            as FloatType;
+                            .get(individual.genotype_node(to_index), 0);
 
-                    if load - cap > 0 {
-                        new_path_cost += (load - cap) as FloatType * self.penalty_capacity;
+                    if (load - cap).approx_gt(0.0) {
+                        new_path_cost += (load - cap) * self.penalty_capacity;
                     }
 
                     if new_path_cost < self.path_cost.get(0, to_index) {
@@ -324,8 +326,8 @@ impl Split {
                             queue.push_back(i);
                         }
                         while queue.len() > 1
-                            && self.propagate(*queue.front(), i + 1, k)
-                                > self.propagate(queue.next_front(), i + 1, k) - EPSILON
+                            && (self.propagate(*queue.front(), i + 1, k))
+                                .approx_gte(self.propagate(queue.next_front(), i + 1, k))
                         {
                             queue.pop_front();
                         }
@@ -338,37 +340,34 @@ impl Split {
                     if self.path_cost.get(vehicle_index, from_index) > 1e29 {
                         break;
                     }
-                    let mut load = 0;
+                    let mut load = 0.0;
                     let mut to_index = from_index + 1;
-                    let mut cost = 0;
+                    let mut cost = 0.0;
                     while to_index < dim
-                        && load as FloatType
-                            + ctx.problem.nodes[individual.genotype_node(to_index)].demand
-                                as FloatType
-                            <= cap as FloatType * capacity_factor
+                        && load + ctx.problem.nodes[individual.genotype_node(to_index)].demand
+                            <= cap * capacity_factor
                     {
                         load += ctx.problem.nodes[individual.genotype_node(to_index)].demand;
                         if to_index == from_index + 1 {
                             cost = ctx
-                                .problem
+                                .matrix_provider
                                 .distance
                                 .get(0, individual.genotype_node(to_index));
                         } else {
-                            cost += ctx.problem.distance.get(
+                            cost += ctx.matrix_provider.distance.get(
                                 individual.genotype_node(to_index - 1),
                                 individual.genotype_node(to_index),
                             );
                         }
                         let mut new_path_cost = self.path_cost.get(vehicle_index, from_index)
-                            + cost as FloatType
+                            + cost
                             + ctx
-                                .problem
+                                .matrix_provider
                                 .distance
-                                .get(individual.genotype_node(to_index), 0)
-                                as FloatType;
+                                .get(individual.genotype_node(to_index), 0);
 
-                        if load - cap > 0 {
-                            new_path_cost += (load - cap) as FloatType * self.penalty_capacity;
+                        if (load - cap).approx_gt(0.0) {
+                            new_path_cost += (load - cap) * self.penalty_capacity;
                         }
 
                         if new_path_cost < self.path_cost.get(vehicle_index + 1, to_index) {

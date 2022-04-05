@@ -1,4 +1,3 @@
-use crate::models::FloatType;
 use crate::solver::evaluate::route_cost;
 use crate::solver::improvement::{LinkNode, LocalSearch, Move};
 
@@ -8,13 +7,9 @@ impl Move for SwapOneWithOne {
     fn move_name(&self) -> &'static str {
         "SwapOneWithOne"
     }
-    unsafe fn delta(
-        &self,
-        ls: &LocalSearch,
-        u_rc: *mut LinkNode,
-        v_rc: *mut LinkNode,
-    ) -> FloatType {
-        let problem = &ls.ctx.problem;
+    unsafe fn delta(&self, ls: &LocalSearch, u_rc: *mut LinkNode, v_rc: *mut LinkNode) -> f64 {
+        let distance_matrix = &ls.ctx.matrix_provider.distance;
+        let nodes = &ls.ctx.problem.nodes;
 
         let u = &*u_rc;
         let u_prev = &*u.predecessor;
@@ -33,23 +28,23 @@ impl Move for SwapOneWithOne {
         }
 
         let distance_one = r1.distance
-            - problem.distance.get(u_prev.number, u.number)
-            - problem.distance.get(u.number, x.number)
-            + problem.distance.get(u_prev.number, v.number)
-            + problem.distance.get(v.number, x.number);
+            - distance_matrix.get(u_prev.number, u.number)
+            - distance_matrix.get(u.number, x.number)
+            + distance_matrix.get(u_prev.number, v.number)
+            + distance_matrix.get(v.number, x.number);
 
         let distance_two = r2.distance
-            - problem.distance.get(v_prev.number, v.number)
-            - problem.distance.get(v.number, y.number)
-            + problem.distance.get(v_prev.number, u.number)
-            + problem.distance.get(u.number, y.number);
+            - distance_matrix.get(v_prev.number, v.number)
+            - distance_matrix.get(v.number, y.number)
+            + distance_matrix.get(v_prev.number, u.number)
+            + distance_matrix.get(u.number, y.number);
 
         let mut overload_one = r1.overload;
         let mut overload_two = r2.overload;
 
         if r1.index != r2.index {
-            let u_demand = problem.nodes[u.number].demand;
-            let v_demand = problem.nodes[v.number].demand;
+            let u_demand = nodes[u.number].demand;
+            let v_demand = nodes[v.number].demand;
             overload_one += -u_demand + v_demand;
             overload_two += u_demand - v_demand;
         }
@@ -97,13 +92,9 @@ impl Move for SwapTwoWithOne {
     fn move_name(&self) -> &'static str {
         "SwapTwoWithOne"
     }
-    unsafe fn delta(
-        &self,
-        ls: &LocalSearch,
-        u_rc: *mut LinkNode,
-        v_rc: *mut LinkNode,
-    ) -> FloatType {
-        let problem = &ls.ctx.problem;
+    unsafe fn delta(&self, ls: &LocalSearch, u_rc: *mut LinkNode, v_rc: *mut LinkNode) -> f64 {
+        let distance_matrix = &ls.ctx.matrix_provider.distance;
+        let nodes = &ls.ctx.problem.nodes;
 
         let u = &*u_rc;
         let u_prev = &*u.predecessor;
@@ -127,26 +118,26 @@ impl Move for SwapTwoWithOne {
         }
 
         let distance_one = r1.distance
-            - problem.distance.get(u_prev.number, u.number)
-            - problem.distance.get(u.number, x.number)
-            - problem.distance.get(x.number, x_next.number)
-            + problem.distance.get(u_prev.number, v.number)
-            + problem.distance.get(v.number, x_next.number);
+            - distance_matrix.get(u_prev.number, u.number)
+            - distance_matrix.get(u.number, x.number)
+            - distance_matrix.get(x.number, x_next.number)
+            + distance_matrix.get(u_prev.number, v.number)
+            + distance_matrix.get(v.number, x_next.number);
 
         let distance_two = r2.distance
-            - problem.distance.get(v_prev.number, v.number)
-            - problem.distance.get(v.number, y.number)
-            + problem.distance.get(v_prev.number, u.number)
-            + problem.distance.get(u.number, x.number)
-            + problem.distance.get(x.number, y.number);
+            - distance_matrix.get(v_prev.number, v.number)
+            - distance_matrix.get(v.number, y.number)
+            + distance_matrix.get(v_prev.number, u.number)
+            + distance_matrix.get(u.number, x.number)
+            + distance_matrix.get(x.number, y.number);
 
         let mut overload_one = r1.overload;
         let mut overload_two = r2.overload;
 
         if r1.index != r2.index {
-            let u_demand = problem.nodes[u.number].demand;
-            let v_demand = problem.nodes[v.number].demand;
-            let x_demand = problem.nodes[x.number].demand;
+            let u_demand = nodes[u.number].demand;
+            let v_demand = nodes[v.number].demand;
+            let x_demand = nodes[x.number].demand;
             overload_one += -u_demand - x_demand + v_demand;
             overload_two += u_demand + x_demand - v_demand;
         }
@@ -195,13 +186,10 @@ impl Move for SwapTwoWithTwo {
     fn move_name(&self) -> &'static str {
         "SwapTwoWithTwo"
     }
-    unsafe fn delta(
-        &self,
-        ls: &LocalSearch,
-        u_rc: *mut LinkNode,
-        v_rc: *mut LinkNode,
-    ) -> FloatType {
-        let problem = &ls.ctx.problem;
+    unsafe fn delta(&self, ls: &LocalSearch, u_rc: *mut LinkNode, v_rc: *mut LinkNode) -> f64 {
+        let distance_matrix = &ls.ctx.matrix_provider.distance;
+        let nodes = &ls.ctx.problem.nodes;
+
         let u = &*u_rc;
         let u_prev = &*u.predecessor;
         let x = &*u.successor;
@@ -232,29 +220,29 @@ impl Move for SwapTwoWithTwo {
         }
 
         let distance_one = r1.distance
-            - problem.distance.get(u_prev.number, u.number)
-            - problem.distance.get(u.number, x.number)
-            - problem.distance.get(x.number, x_next.number)
-            + problem.distance.get(u_prev.number, v.number)
-            + problem.distance.get(v.number, y.number)
-            + problem.distance.get(y.number, x_next.number);
+            - distance_matrix.get(u_prev.number, u.number)
+            - distance_matrix.get(u.number, x.number)
+            - distance_matrix.get(x.number, x_next.number)
+            + distance_matrix.get(u_prev.number, v.number)
+            + distance_matrix.get(v.number, y.number)
+            + distance_matrix.get(y.number, x_next.number);
 
         let distance_two = r2.distance
-            - problem.distance.get(v_prev.number, v.number)
-            - problem.distance.get(v.number, y.number)
-            - problem.distance.get(y.number, y_next.number)
-            + problem.distance.get(v_prev.number, u.number)
-            + problem.distance.get(u.number, x.number)
-            + problem.distance.get(x.number, y_next.number);
+            - distance_matrix.get(v_prev.number, v.number)
+            - distance_matrix.get(v.number, y.number)
+            - distance_matrix.get(y.number, y_next.number)
+            + distance_matrix.get(v_prev.number, u.number)
+            + distance_matrix.get(u.number, x.number)
+            + distance_matrix.get(x.number, y_next.number);
 
         let mut overload_one = r1.overload;
         let mut overload_two = r2.overload;
 
         if r1.index != r2.index {
-            let u_demand = problem.nodes[u.number].demand;
-            let v_demand = problem.nodes[v.number].demand;
-            let x_demand = problem.nodes[x.number].demand;
-            let y_demand = problem.nodes[y.number].demand;
+            let u_demand = nodes[u.number].demand;
+            let v_demand = nodes[v.number].demand;
+            let x_demand = nodes[x.number].demand;
+            let y_demand = nodes[y.number].demand;
             overload_one += -u_demand - x_demand + v_demand + y_demand;
             overload_two += u_demand + x_demand - v_demand - y_demand;
         }

@@ -1,10 +1,10 @@
 use std::ptr;
 
 use crate::solver::improvement::{LinkNode, LinkRoute, LocalSearch};
-use crate::{constants::EPSILON, models::FloatType};
+use crate::utils::FloatCompare;
 
 pub struct BestSwapStar {
-    pub cost: FloatType,
+    pub cost: f64,
     pub u: *mut LinkNode,
     pub v: *mut LinkNode,
     // Best position to insert `u` is right after `pos_u`
@@ -16,7 +16,7 @@ pub struct BestSwapStar {
 impl BestSwapStar {
     pub fn new() -> Self {
         Self {
-            cost: FloatType::INFINITY,
+            cost: f64::INFINITY,
             u: ptr::null_mut(),
             v: ptr::null_mut(),
             pos_u: ptr::null_mut(),
@@ -56,23 +56,18 @@ impl SwapStar {
                 let v = &*v_ptr;
 
                 // Calculate the change in penalty when u and v swap routes
-                let delta_penalty_r1 = 0.max(
+                let delta_penalty_r1 = 0f64.max(
                     r1.overload - problem.nodes[u.number].demand + problem.nodes[v.number].demand,
-                ) as FloatType
-                    * ls.penalty_capacity
-                    - 0.max(r1.overload) as FloatType * ls.penalty_capacity;
-                let delta_penalty_r2 = 0.max(
+                ) * ls.penalty_capacity
+                    - 0f64.max(r1.overload) * ls.penalty_capacity;
+                let delta_penalty_r2 = 0f64.max(
                     r2.overload + problem.nodes[u.number].demand - problem.nodes[v.number].demand,
-                ) as FloatType
-                    * ls.penalty_capacity
-                    - 0.max(r2.overload) as FloatType * ls.penalty_capacity;
+                ) * ls.penalty_capacity
+                    - 0f64.max(r2.overload) * ls.penalty_capacity;
 
                 // Filter to avoid moves with huge penalties due to violation of capacity constraints
-                if u.delta_removal as FloatType
-                    + v.delta_removal as FloatType
-                    + delta_penalty_r1
-                    + delta_penalty_r2
-                    <= 0.0
+                if (u.delta_removal + v.delta_removal + delta_penalty_r1 + delta_penalty_r2)
+                    .approx_lte(0.0)
                 {
                     let mut m = BestSwapStar::new();
                     m.u = u_ptr;
@@ -85,10 +80,10 @@ impl SwapStar {
                     m.pos_u = best_pos_u;
                     m.pos_v = best_pos_v;
                     // Calculate change in cost for performing the move
-                    m.cost = u.delta_removal as FloatType
+                    m.cost = u.delta_removal as f64
                         + delta_penalty_r1
                         + delta_insertion_u
-                        + v.delta_removal as FloatType
+                        + v.delta_removal as f64
                         + delta_penalty_r2
                         + delta_insertion_v;
 
@@ -112,18 +107,15 @@ impl SwapStar {
             m.u = u_ptr;
             let best_insert = &ls.best_inserts.get(r2.index, u.number).locations[0];
             m.pos_u = best_insert.node;
-            let delta_penalty_r1 = 0.max(r1.overload - problem.nodes[u.number].demand) as FloatType
+            let delta_penalty_r1 = 0f64.max(r1.overload - problem.nodes[u.number].demand)
                 * ls.penalty_capacity
-                - 0.max(r1.overload) as FloatType * ls.penalty_capacity;
-            let delta_penalty_r2 = 0.max(r2.overload + problem.nodes[u.number].demand) as FloatType
+                - 0f64.max(r1.overload) * ls.penalty_capacity;
+            let delta_penalty_r2 = 0f64.max(r2.overload + problem.nodes[u.number].demand)
                 * ls.penalty_capacity
-                - 0.max(r2.overload) as FloatType * ls.penalty_capacity;
-            m.cost = u.delta_removal as FloatType
-                + best_insert.cost
-                + delta_penalty_r1
-                + delta_penalty_r2;
+                - 0f64.max(r2.overload) * ls.penalty_capacity;
+            m.cost = u.delta_removal + best_insert.cost + delta_penalty_r1 + delta_penalty_r2;
 
-            if m.cost < best_move.cost {
+            if m.cost.approx_lt(best_move.cost) {
                 best_move = m;
             }
 
@@ -139,18 +131,15 @@ impl SwapStar {
             m.v = v_ptr;
             let best_insert = &ls.best_inserts.get(r1.index, v.number).locations[0];
             m.pos_v = best_insert.node;
-            let delta_penalty_r1 = 0.max(r1.overload + problem.nodes[v.number].demand) as FloatType
+            let delta_penalty_r1 = 0f64.max(r1.overload + problem.nodes[v.number].demand)
                 * ls.penalty_capacity
-                - 0.max(r1.overload) as FloatType * ls.penalty_capacity;
-            let delta_penalty_r2 = 0.max(r2.overload - problem.nodes[v.number].demand) as FloatType
+                - 0f64.max(r1.overload) * ls.penalty_capacity;
+            let delta_penalty_r2 = 0f64.max(r2.overload - problem.nodes[v.number].demand)
                 * ls.penalty_capacity
-                - 0.max(r2.overload) as FloatType * ls.penalty_capacity;
-            m.cost = v.delta_removal as FloatType
-                + best_insert.cost
-                + delta_penalty_r1
-                + delta_penalty_r2;
+                - 0f64.max(r2.overload) * ls.penalty_capacity;
+            m.cost = v.delta_removal + best_insert.cost + delta_penalty_r1 + delta_penalty_r2;
 
-            if m.cost < best_move.cost {
+            if m.cost.approx_lt(best_move.cost) {
                 best_move = m;
             }
 
@@ -158,7 +147,7 @@ impl SwapStar {
         }
 
         // Return false if the move does not reduce the objective function
-        if best_move.cost > -EPSILON {
+        if best_move.cost.approx_gte(0.0) {
             return false;
         }
 

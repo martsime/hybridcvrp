@@ -1,25 +1,25 @@
 use std::fmt;
 use std::ptr;
 
-use crate::models::{CircleSector, FloatType, IntType};
+use crate::models::CircleSector;
 
 #[derive(Clone, Debug)]
 pub struct LinkNode {
     pub number: usize,
-    pub angle: IntType,
+    pub angle: i32,
     pub successor: *mut LinkNode,
     pub predecessor: *mut LinkNode,
     pub route: *mut LinkRoute,
     pub position: usize,
-    pub last_tested: IntType,
-    pub cum_distance: IntType,
-    pub cum_load: IntType,
+    pub last_tested: i32,
+    pub cum_distance: f64,
+    pub cum_load: f64,
     // Change in distance when removing the node
-    pub delta_removal: IntType,
+    pub delta_removal: f64,
 }
 
 impl LinkNode {
-    pub unsafe fn new(number: usize, angle: IntType) -> Self {
+    pub unsafe fn new(number: usize, angle: i32) -> Self {
         Self {
             number,
             angle,
@@ -28,9 +28,9 @@ impl LinkNode {
             route: ptr::null_mut(),
             position: 0,
             last_tested: 0,
-            cum_distance: 0,
-            cum_load: 0,
-            delta_removal: 0,
+            cum_distance: f64::default(),
+            cum_load: f64::default(),
+            delta_removal: f64::default(),
         }
     }
 
@@ -134,25 +134,25 @@ pub struct LinkRoute {
     pub num_customers: usize,
 
     // Used keep track of changes
-    pub last_modified: IntType,
+    pub last_modified: i32,
 
     // Used keep track of changes
-    pub last_tested_swap_star: IntType,
+    pub last_tested_swap_star: i32,
 
     // Circle sector of the route
     pub sector: CircleSector,
 
     // Distance of the route
-    pub distance: IntType,
+    pub distance: f64,
 
     // Total load on the route
-    pub load: IntType,
+    pub load: f64,
 
     // Total overload on the route
-    pub overload: IntType,
+    pub overload: f64,
 
     // Penalized cost
-    pub cost: FloatType,
+    pub cost: f64,
 }
 
 impl LinkRoute {
@@ -165,10 +165,10 @@ impl LinkRoute {
             last_modified: 0,
             last_tested_swap_star: 0,
             sector: CircleSector::new(),
-            distance: IntType::MAX,
-            load: IntType::MAX,
-            overload: IntType::MAX,
-            cost: FloatType::INFINITY,
+            distance: f64::MAX,
+            load: f64::MAX,
+            overload: f64::MAX,
+            cost: f64::INFINITY,
         }
     }
 

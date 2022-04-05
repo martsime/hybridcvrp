@@ -1,4 +1,3 @@
-use crate::models::FloatType;
 use crate::solver::evaluate::route_cost;
 use crate::solver::improvement::{LinkNode, LocalSearch, Move};
 
@@ -8,13 +7,8 @@ impl Move for TwoOptIntraReverse {
     fn move_name(&self) -> &'static str {
         "TwoOptIntraReverse"
     }
-    unsafe fn delta(
-        &self,
-        ls: &LocalSearch,
-        u_rc: *mut LinkNode,
-        v_rc: *mut LinkNode,
-    ) -> FloatType {
-        let problem = &ls.ctx.problem;
+    unsafe fn delta(&self, ls: &LocalSearch, u_rc: *mut LinkNode, v_rc: *mut LinkNode) -> f64 {
+        let distance_matrix = &ls.ctx.matrix_provider.distance;
 
         let u = &*u_rc;
         let v = &*v_rc;
@@ -33,13 +27,13 @@ impl Move for TwoOptIntraReverse {
             return 0.0;
         }
 
-        let delta_distance = -problem.distance.get(u.number, x.number)
-            - problem.distance.get(v.number, y.number)
-            + problem.distance.get(u.number, v.number)
-            + problem.distance.get(x.number, y.number);
+        let delta_distance = -distance_matrix.get(u.number, x.number)
+            - distance_matrix.get(v.number, y.number)
+            + distance_matrix.get(u.number, v.number)
+            + distance_matrix.get(x.number, y.number);
 
         // Return delta cost
-        delta_distance as FloatType
+        delta_distance as f64
     }
 
     unsafe fn perform(&self, ls: &mut LocalSearch, u_rc: *mut LinkNode, v_rc: *mut LinkNode) {
@@ -59,13 +53,8 @@ impl Move for TwoOptInterReverse {
     fn move_name(&self) -> &'static str {
         "TwoOptInterReverse"
     }
-    unsafe fn delta(
-        &self,
-        ls: &LocalSearch,
-        u_rc: *mut LinkNode,
-        v_rc: *mut LinkNode,
-    ) -> FloatType {
-        let problem = &ls.ctx.problem;
+    unsafe fn delta(&self, ls: &LocalSearch, u_rc: *mut LinkNode, v_rc: *mut LinkNode) -> f64 {
+        let distance_matrix = &ls.ctx.matrix_provider.distance;
 
         let u = &*u_rc;
         let v = &*v_rc;
@@ -79,12 +68,12 @@ impl Move for TwoOptInterReverse {
         let x = &*u.successor;
         let y = &*v.successor;
 
-        let cap = problem.vehicle.cap;
+        let cap = ls.ctx.problem.vehicle.cap;
 
         let distance_one =
-            u.cum_distance + v.cum_distance + problem.distance.get(u.number, v.number);
+            u.cum_distance + v.cum_distance + distance_matrix.get(u.number, v.number);
         let distance_two = r1.distance - x.cum_distance + r2.distance - y.cum_distance
-            + problem.distance.get(x.number, y.number);
+            + distance_matrix.get(x.number, y.number);
         let overload_one = u.cum_load + v.cum_load - cap;
         let overload_two = r1.load - u.cum_load + r2.load - v.cum_load - cap;
 
@@ -125,13 +114,8 @@ impl Move for TwoOptInter {
     fn move_name(&self) -> &'static str {
         "TwoOptInter"
     }
-    unsafe fn delta(
-        &self,
-        ls: &LocalSearch,
-        u_rc: *mut LinkNode,
-        v_rc: *mut LinkNode,
-    ) -> FloatType {
-        let problem = &ls.ctx.problem;
+    unsafe fn delta(&self, ls: &LocalSearch, u_rc: *mut LinkNode, v_rc: *mut LinkNode) -> f64 {
+        let distance_matrix = &ls.ctx.matrix_provider.distance;
 
         let u = &*u_rc;
         let v = &*v_rc;
@@ -145,12 +129,12 @@ impl Move for TwoOptInter {
         let x = &*u.successor;
         let y = &*v.successor;
 
-        let cap = problem.vehicle.cap;
+        let cap = ls.ctx.problem.vehicle.cap;
 
-        let distance_one = u.cum_distance + r2.distance - y.cum_distance
-            + problem.distance.get(u.number, y.number);
-        let distance_two = v.cum_distance + r1.distance - x.cum_distance
-            + problem.distance.get(v.number, x.number);
+        let distance_one =
+            u.cum_distance + r2.distance - y.cum_distance + distance_matrix.get(u.number, y.number);
+        let distance_two =
+            v.cum_distance + r1.distance - x.cum_distance + distance_matrix.get(v.number, x.number);
         let overload_one = u.cum_load + r2.load - v.cum_load - cap;
         let overload_two = v.cum_load + r1.load - u.cum_load - cap;
 

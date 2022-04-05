@@ -2,8 +2,7 @@ use instant::Instant;
 use wasm_bindgen::prelude::*;
 
 use crate::config::Config;
-use crate::constants::EPSILON;
-use crate::models::{Coordinate, FloatType, IntType, Node, ProblemBuilder, Vehicle};
+use crate::models::{Coordinate, Node, ProblemBuilder, Vehicle};
 use crate::solver::genetic::GeneticAlgorithm;
 use crate::solver::{Context, Metaheuristic, SearchHistory};
 
@@ -27,7 +26,7 @@ pub struct Solver {
     config: Config,
     wasm_problem: WasmProblem,
     metaheuristic: Option<GeneticAlgorithm>,
-    best_cost: FloatType,
+    best_cost: f64,
 }
 
 #[wasm_bindgen]
@@ -39,7 +38,7 @@ impl Solver {
             config: Config::default(),
             wasm_problem: WasmProblem::new(),
             metaheuristic: None,
-            best_cost: FloatType::INFINITY,
+            best_cost: f64::INFINITY,
         }
     }
 
@@ -47,10 +46,10 @@ impl Solver {
         self.wasm_problem = WasmProblem::new();
         self.ctx = None;
         self.metaheuristic = None;
-        self.best_cost = FloatType::INFINITY;
+        self.best_cost = f64::INFINITY;
     }
 
-    pub fn add_node(&mut self, id: usize, demand: IntType, x: IntType, y: IntType) {
+    pub fn add_node(&mut self, id: usize, demand: i32, x: i32, y: i32) {
         let new_node = Node {
             id,
             coord: Coordinate { lng: x, lat: y },
@@ -59,7 +58,7 @@ impl Solver {
         self.wasm_problem.nodes.push(new_node);
     }
 
-    pub fn add_capacity(&mut self, capacity: IntType) {
+    pub fn add_capacity(&mut self, capacity: i32) {
         self.wasm_problem.vehicle = Some(Vehicle {
             id: 0,
             cap: capacity,

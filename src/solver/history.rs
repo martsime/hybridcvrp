@@ -4,7 +4,6 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
-use crate::models::FloatType;
 use crate::solver::genetic::Individual;
 use crate::solver::Context;
 
@@ -14,7 +13,7 @@ pub struct HistoricSolution {
     pub routes: Vec<Vec<usize>>,
 
     // Cost of solution
-    pub cost: FloatType,
+    pub cost: f64,
 }
 
 impl From<&Individual> for HistoricSolution {
@@ -23,6 +22,25 @@ impl From<&Individual> for HistoricSolution {
             routes: individual.phenotype.clone(),
             cost: individual.penalized_cost(),
         }
+    }
+}
+
+impl fmt::Display for HistoricSolution {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut route_number = 1;
+        for route in self.routes.iter() {
+            if route.len() > 0 {
+                let mut route_string = format!("Route #{}:", route_number);
+                for stop in route.iter() {
+                    route_string.push_str(&format!(" {}", stop));
+                }
+                route_number += 1;
+                writeln!(f, "{}", route_string)?;
+            }
+        }
+        write!(f, "Cost {}", self.cost.round() as u64)?;
+
+        Ok(())
     }
 }
 
@@ -50,21 +68,24 @@ pub struct SearchHistory {
     // History of solutions
     history: Vec<HistoryEntry>,
 
-    pub best_cost: FloatType,
+    pub best_cost: f64,
 
     // Timestamp of when the solver started
     pub start_time: Instant,
 
     pub messages: Vec<HistoryMessage>,
+
+    log_new_best: bool,
 }
 
 impl SearchHistory {
     pub fn new(start_time: Instant) -> Self {
         Self {
             history: Vec::new(),
-            best_cost: FloatType::INFINITY,
+            best_cost: f64::INFINITY,
             start_time,
             messages: Vec::new(),
+            log_new_best: true,
         }
     }
 
@@ -82,8 +103,15 @@ impl SearchHistory {
             timestamp,
         };
 
+        #[cfg(feature = "dimacs")]
+        {
+            if self.log_new_best {
+                println!("{}", history_entry.solution);
+            }
+        }
+
         let new_best_message = HistoryMessage {
-            message: format!("New best: {:.2}", self.best_cost),
+            message: format!("New best: {:?}", self.best_cost),
             timestamp,
         };
 
@@ -99,11 +127,6 @@ impl SearchHistory {
             message,
             timestamp: self.start_time.elapsed(),
         };
-        log::info!(
-            "Time: {:?}, {}",
-            history_message.timestamp,
-            history_message.message
-        );
         self.messages.push(history_message);
     }
 
@@ -113,5 +136,9 @@ impl SearchHistory {
 
     pub fn last_entry(&self) -> Option<&HistoryEntry> {
         self.history.last()
+    }
+
+    pub fn log_new_best(&mut self, log_new_best: bool) {
+        self.log_new_best = log_new_best;
     }
 }

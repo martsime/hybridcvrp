@@ -1,26 +1,35 @@
-use crate::models::{FloatType, IntType};
 use crate::solver::improvement::RuinRecreateSolution;
 use crate::solver::Context;
+use crate::utils::FloatCompare;
 
 fn sort_on_demand(ctx: &Context, solution: &mut RuinRecreateSolution) {
     let problem = &ctx.problem;
-    solution
-        .unassigned
-        .sort_by(|&a, &b| problem.nodes[b].demand.cmp(&problem.nodes[a].demand))
+    solution.unassigned.sort_by(|&a, &b| {
+        problem.nodes[b]
+            .demand
+            .partial_cmp(&problem.nodes[a].demand)
+            .expect("Failed to compare floats")
+    })
 }
 
 fn sort_farthest_away_from_depot(ctx: &Context, solution: &mut RuinRecreateSolution) {
-    let problem = &ctx.problem;
-    solution
-        .unassigned
-        .sort_by(|&a, &b| problem.distance.get(b, 0).cmp(&problem.distance.get(a, 0)))
+    let distance_matrix = &ctx.matrix_provider.distance;
+    solution.unassigned.sort_by(|&a, &b| {
+        distance_matrix
+            .get(b, 0)
+            .partial_cmp(&distance_matrix.get(a, 0))
+            .expect("Failed to compare floats")
+    })
 }
 
 fn sort_closest_to_depot(ctx: &Context, solution: &mut RuinRecreateSolution) {
-    let problem = &ctx.problem;
-    solution
-        .unassigned
-        .sort_by(|&a, &b| problem.distance.get(a, 0).cmp(&problem.distance.get(b, 0)))
+    let distance_matrix = &ctx.matrix_provider.distance;
+    solution.unassigned.sort_by(|&a, &b| {
+        distance_matrix
+            .get(a, 0)
+            .partial_cmp(&distance_matrix.get(b, 0))
+            .expect("Failed to compare floats")
+    })
 }
 
 pub trait Recreate {
@@ -65,15 +74,15 @@ impl Recreate for GreedyBlink {
             let demand = problem.nodes[customer].demand;
 
             let mut best_route: Option<usize> = None;
-            let mut best_distance = IntType::MAX;
+            let mut best_distance = f64::MAX;
             let mut best_node_index = 0;
 
-            for (route_number, route) in solution.routes.iter_mut().enumerate() {
-                if route.overload + demand <= 0 {
-                    // && // solution.ruined_routes.contains(&route_number) {
+            for &route_number in updated_routes.iter() {
+                let route = solution.routes.get_mut(route_number).unwrap();
+                if (route.overload + demand).approx_lte(0.0) {
                     for index in 0..=route.nodes.len() {
                         let delta_distance = route.delta_distance(index, customer, ctx);
-                        if delta_distance < best_distance {
+                        if delta_distance.approx_lt(best_distance) {
                             best_distance = delta_distance;
                             best_node_index = index;
                             if let Some(best_route_number) = best_route.as_mut() {
@@ -90,20 +99,17 @@ impl Recreate for GreedyBlink {
                 solution.routes[best_route_number].add(best_node_index, customer, ctx);
                 updated_routes.insert(best_route_number);
             } else {
-                log::info!("Cannot insert feasibly!");
-                // Greedy insert infeasible
                 let mut best_route: Option<usize> = None;
-                let mut best_cost = FloatType::MAX;
+                let mut best_cost = f64::MAX;
                 let mut best_node_index = 0;
 
                 for (route_number, route) in solution.routes.iter_mut().enumerate() {
                     let overload = route.overload + demand;
-                    let overload_cost =
-                        0.max(overload) as FloatType * ctx.config.borrow().penalty_capacity;
+                    let overload_cost = 0f64.max(overload) * ctx.config.borrow().penalty_capacity;
                     for index in 0..=route.nodes.len() {
                         let delta_distance = route.delta_distance(index, customer, ctx);
-                        let delta_cost = delta_distance as FloatType + overload_cost;
-                        if delta_cost < best_cost {
+                        let delta_cost = delta_distance + overload_cost;
+                        if delta_cost.approx_lt(best_cost) {
                             best_cost = delta_cost;
                             best_node_index = index;
                             if let Some(best_route_number) = best_route.as_mut() {

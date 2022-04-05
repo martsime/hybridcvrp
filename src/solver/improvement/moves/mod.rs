@@ -10,19 +10,13 @@ pub use self::swap_star::*;
 mod two_opt;
 pub use self::two_opt::*;
 
-use crate::models::FloatType;
 use crate::solver::improvement::linked_list::LinkNode;
 use crate::solver::improvement::LocalSearch;
 use crate::solver::Context;
 
 pub trait Move {
     fn move_name(&self) -> &'static str;
-    unsafe fn delta(
-        &self,
-        ls: &LocalSearch,
-        node_u: *mut LinkNode,
-        node_v: *mut LinkNode,
-    ) -> FloatType;
+    unsafe fn delta(&self, ls: &LocalSearch, node_u: *mut LinkNode, node_v: *mut LinkNode) -> f64;
     unsafe fn perform(&self, ls: &mut LocalSearch, node_u: *mut LinkNode, node_v: *mut LinkNode);
 }
 

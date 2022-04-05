@@ -5,18 +5,23 @@ use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 
 use crate::cli::Args;
-use crate::models::FloatType;
 
 /// Contains all the configuration parameters
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Config {
     // General
     pub instance_path: String,
-    pub solution_path: String,
+    pub solution_path: Option<String>,
     pub time_limit: u64,
-    pub max_iterations: u64,
+    pub bks: f64,
+    pub max_iterations: Option<u64>,
+    pub max_iterations_without_improvement: u64,
     pub num_vehicles: u64,
     pub log_interval: u64,
+    pub precompute_distance_size_limit: u64,
+    pub round_distances: bool,
+    pub decompose_limit: u64,
+    pub decomposed_problem_min_size: u64,
 
     // Randomization
     pub deterministic: bool,
@@ -28,12 +33,12 @@ pub struct Config {
     pub population_lambda: u64,
     pub num_elites: u64,
     pub num_diversity_closest: u64,
-    pub feasibility_proportion_target: FloatType,
+    pub feasibility_proportion_target: f64,
     pub tournament_size: u64,
-    pub repair_probability: FloatType,
+    pub repair_probability: f64,
 
     // Split
-    pub split_capacity_factor: FloatType,
+    pub split_capacity_factor: f64,
     pub linear_split: bool,
 
     // Local Search
@@ -55,27 +60,29 @@ pub struct Config {
     pub swap_star: bool,
 
     // Penalties
-    pub penalty_capacity: FloatType,
+    pub penalty_capacity: f64,
     pub penalty_update_interval: u64,
-    pub penalty_inc_multiplier: FloatType,
-    pub penalty_dec_multiplier: FloatType,
+    pub penalty_inc_multiplier: f64,
+    pub penalty_dec_multiplier: f64,
 
     // Ruin Recreate
     pub average_ruin_cardinality: usize,
     pub max_ruin_string_length: usize,
     pub rr_mutation: bool,
-    pub rr_probability: FloatType,
-    pub rr_gamma: FloatType,
-    pub rr_final_temp: FloatType,
-    pub rr_start_temp: FloatType,
+    pub rr_probability: f64,
+    pub rr_gamma: f64,
+    pub rr_final_temp: f64,
+    pub rr_start_temp: f64,
     pub rr_diversify: bool,
 
     // Diving with ruin recreate
     pub elite_education: bool,
     pub elite_education_problem_size_limit: usize,
-    pub elite_education_gamma: FloatType,
-    pub elite_education_final_temp: FloatType,
-    pub elite_education_start_temp: FloatType,
+    pub elite_education_gamma: f64,
+    pub elite_education_final_temp: f64,
+    pub elite_education_start_temp: f64,
+    pub elite_education_time_based: bool,
+    pub elite_education_time_fraction: f64,
 }
 
 impl Config {
@@ -83,11 +90,17 @@ impl Config {
         Self {
             // General
             instance_path: String::new(),
-            solution_path: String::new(),
+            solution_path: None,
             time_limit: 60,
-            max_iterations: 20_000,
+            bks: f64::INFINITY,
+            max_iterations: None,
+            max_iterations_without_improvement: 20_000,
             num_vehicles: 1_000_000,
             log_interval: 100,
+            precompute_distance_size_limit: 2_000,
+            round_distances: true,
+            decompose_limit: 3000,
+            decomposed_problem_min_size: 200,
 
             // Randomization
             deterministic: false,
@@ -147,6 +160,8 @@ impl Config {
             elite_education_gamma: 1_000.0,
             elite_education_final_temp: 1.0,
             elite_education_start_temp: 50.0,
+            elite_education_time_based: false,
+            elite_education_time_fraction: 0.02,
         }
     }
 
@@ -200,10 +215,11 @@ impl Config {
         self.instance_path = args.instance_path.clone();
         self.solution_path = args.solution_path.clone();
         if let Some(max_iterations) = args.max_iterations {
-            self.max_iterations = max_iterations;
+            self.max_iterations_without_improvement = max_iterations;
         }
         if let Some(time_limit) = args.time_limit {
             self.time_limit = time_limit;
         }
+        self.round_distances = args.rounded;
     }
 }
