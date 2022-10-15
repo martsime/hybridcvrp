@@ -5,13 +5,16 @@ use hybridcvrp::config::Config;
 use hybridcvrp::solver::genetic::{DecomposedGeneticAlgorithm, GeneticAlgorithm};
 use hybridcvrp::solver::{Context, Solver};
 use hybridcvrp::utils;
+use log::LevelFilter;
 
 fn main() {
     // Start time of program
     let start_time = Instant::now();
 
     // Initialize logger
-    env_logger::Builder::from_default_env()
+    env_logger::Builder::default()
+        .filter_level(LevelFilter::Info)
+        .parse_default_env()
         .format_module_path(false)
         .init();
 
