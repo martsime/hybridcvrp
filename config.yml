@@ -20,8 +20,8 @@ precompute_distance_size_limit: 3000
 # Round distances to integer values
 round_distances: true
 
+# Decomposition into subproblems
 decompose_limit: 3000
-
 decomposed_problem_min_size: 150
 
 #####################
@@ -89,5 +89,5 @@ rr_gamma: 1.0
 elite_education_gamma: 1000.0
 
 elite_education_problem_size_limit: 500
-elite_education_time_based: true
+elite_education_time_based: false
 elite_education_time_fraction: 0.05

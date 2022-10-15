@@ -25,6 +25,7 @@ impl Args {
                 Arg::with_name("solution_path")
                     .short("o")
                     .takes_value(true)
+                    .default_value("output.sol")
                     .help("Path to solution output"),
             )
             .arg(
@@ -37,11 +38,14 @@ impl Args {
                 Arg::with_name("time_limit")
                     .short("t")
                     .takes_value(true)
+                    .default_value("10")
                     .help("Time limit in seconds"),
             )
             .arg(
                 Arg::with_name("rounded")
                     .short("r")
+                    .takes_value(true)
+                    .default_value("true")
                     .help("Rounded distances"),
             )
             .get_matches();
