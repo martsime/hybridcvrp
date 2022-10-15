@@ -30,12 +30,6 @@ For example:
 cargo run --release instances/X-n101-k25.vrp
 ```
 
-To enable logging, prepend `RUST_LOG=info` to the command as follows:
-
-```
-RUST_LOG=info cargo run --release <instance-path>
-```
-
 ## Configuration
 
 The best way to configurate the solver is by changing the parameter values in the `config.yml` file, which is parsed by the solver at startup.
@@ -48,4 +42,4 @@ Huge thanks to Thibaut Vidal for open sourcing an implementation of the [Hybrid 
 Access to the implementation was very helpfull during the development of the HybridCVRP solver.
 
 ## References
-[1] TODO: Reference to HybridCVRP
+[1] Simensen, M., Hasle, G. & Stålhane, M. Combining hybrid genetic search with ruin-and-recreate for solving the capacitated vehicle routing problem. *Journal of Heuristics* (2022). [https://doi.org/10.1007/s10732-022-09500-9](https://doi.org/10.1007/s10732-022-09500-9)
